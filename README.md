@@ -1,1 +1,5 @@
-# MLStatEval
+# Propspective evaluation of ML models
+
+This repo has contains the code needed to produce all of the results and figures found in thie arXiv paper [TBD](). 
+
+Run `pipeline.sh` to create all figures.

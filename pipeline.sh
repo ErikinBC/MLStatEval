@@ -3,6 +3,11 @@
 # Load the conda environment
 source set_env.sh
 
+# (1) Get the number of arXiv papers
+Rscript get_arxiv.R
+#   output:     ~/figures/gg_arxiv.png
+
+
 
 # ------ (X) ROC CURVE ------ #
 

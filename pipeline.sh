@@ -7,6 +7,10 @@ source set_env.sh
 Rscript get_arxiv.R
 #   output:     ~/figures/gg_arxiv.png
 
+# (2) Get the number of FDA approvals
+Rscript get_fda.R
+#   output:     ~/figures/gg_fda.png
+
 
 
 # ------ (X) ROC CURVE ------ #

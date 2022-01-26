@@ -1,6 +1,6 @@
 *.csv
 data/
-Rplots*
+Rplots.pdf
 *.Rproj*
 .Rhistory
 

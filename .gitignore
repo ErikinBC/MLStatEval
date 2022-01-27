@@ -3,5 +3,5 @@ data/
 Rplots.pdf
 *.Rproj*
 .Rhistory
-
 .Rproj.user
+__pycache__/

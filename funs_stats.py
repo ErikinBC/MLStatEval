@@ -50,4 +50,41 @@ def get_CI(df, cn_n, den, method='beta', alpha=0.05):
     return df
 
 
+"""Find the quantile (linear interpolation) for specific rows of each column of data
+data:           np.array of data to quantiles of
+boolean:        np.array of which (i,j) positions to include in calculation
+q:              Quantile target
+"""
+def fast_quant_by_bool(data, boolean, q):
+    # For False values, assign nan
+    x = np.where(boolean, data, np.nan)
+    # Sort
+    x = np.sort(x, axis=0)
+    n = np.sum(boolean, 0)
+    # Find the row position that corresponds to the quantile
+    ridx = q*(n-1)
+    lidx = np.floor(ridx).astype(int)
+    uidx = np.ceil(ridx).astype(int)
+    frac = ridx - lidx
+    cidx = np.arange(x.shape[1])
+    # calculate lower/upper bound of quantile
+    q_lb = x[lidx, cidx]
+    q_ub = x[uidx, cidx]
+    # do linear interpolation
+    dq = q_ub - q_lb
+    q_interp = q_lb + dq*frac
+    return q_interp
 
+# def quant_by_bool(data, boolean, q):
+#     kk = data.shape[1]
+#     holder = np.zeros(kk)
+#     for k in range(kk):
+#         holder[k] = np.quantile(data[:,k][boolean[:,k]], q)
+#     return holder
+# from timeit import timeit
+# q, n, k, nsim = 0.75, 100, 1000, 100
+# data = np.random.randn(n,k)
+# boolean = np.random.binomial(1,0.5,(n,k)) == 1
+# assert np.all(quant_by_bool(data, boolean, q) == fast_quant_by_bool(data, boolean, q))
+# timeit(stmt='quant_by_bool(data, boolean, q)', number=nsim, globals=globals())
+# timeit(stmt='fast_quant_by_bool(data, boolean, q)', number=nsim, globals=globals())

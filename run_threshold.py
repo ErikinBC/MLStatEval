@@ -7,7 +7,7 @@ import plotnine as pn
 from scipy.stats import norm
 from funs_support import gg_save
 from funs_stats import get_CI
-from funs_class_thresh import tools_thresh
+from funs_threshold import tools_thresh
 
 dir_base = os.getcwd()
 dir_figures = os.path.join(dir_base, 'figures')
@@ -21,10 +21,12 @@ seed = 1
 gamma = 0.8
 mu = 1
 enc_thresh = tools_thresh(m='sens', mu=mu)
-enc_thresh.sample(n, nsim, seed=seed)
+enc_thresh.sample(n=n, k=nsim, seed=seed)
 enc_thresh.learn_thresh(gamma, method='quantile')
 enc_thresh.thresh2emp()
 enc_thresh.thresh2oracle()
+# Coverage by method....
+
 df_quant = pd.DataFrame({'thresh':enc_thresh.thresh, 'emp':enc_thresh.perf_emp, 'oracle':enc_thresh.perf_oracle})
 df_quant = df_quant.assign(tt=lambda x: np.where(x['oracle'] < gamma, '<','>'))
 
@@ -48,4 +50,4 @@ gg_save('gg_quant_sens.png', dir_figures, gg_quant_sens, 4.5, 3.5)
 
 
 #######################################
-# ---- (2) XXXX ---- #
+# ---- (2) SHOW CHOICE ON DIABETES DATASET ---- #

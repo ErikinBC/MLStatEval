@@ -1,7 +1,7 @@
 # Class needed to calibrate threshold for specific performance target
 import numpy as np
+import pandas as pd
 from scipy.stats import norm
-from funs_support import cvec
 from funs_m import sensitivity
 
 lst_m = ['sens','spec','prec']
@@ -21,7 +21,7 @@ class tools_thresh():
     def __init__(self, m, alpha=0.05, mu=1, p=0.5):
         # (i) Performance measure
         assert m in lst_m, 'm needs be one of: %s' % lst_m
-        self.m = di_m[m](mu=mu)  # Initialize performance measure class
+        self.m = di_m[m](alpha=alpha, mu=mu)  # Initialize performance measure class
         assert all([hasattr(self.m,attr) for attr in lst_attr])
 
         # (ii) Statistical testing
@@ -77,11 +77,15 @@ class tools_thresh():
         if thresh is None:
             thresh = self.thresh
         self.perf_oracle = self.m.oracle(thresh)
+        if isinstance(thresh, pd.DataFrame):
+            self.perf_oracle.columns = thresh.columns
+
         
     """
     Get empirical performance measure
     """
     def thresh2emp(self, y=None, s=None, thresh=None):
+        # y=None;s=None;thresh=None
         if y is None:
             y = self.y
         if s is None:
@@ -89,5 +93,6 @@ class tools_thresh():
         if thresh is None:
             thresh = self.thresh
         self.perf_emp = self.m.stat(y, s, thresh)
-
+        if isinstance(thresh, pd.DataFrame):
+            self.perf_emp.columns = thresh.columns
 

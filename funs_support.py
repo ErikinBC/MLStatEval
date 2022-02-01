@@ -28,11 +28,19 @@ def grid_save(fn, fold, gg):
 
 # Row vector
 def rvec(x):
-    return np.atleast_2d(x)
+    if isinstance(x, list):
+        x = np.array(x)
+    if len(x.shape) == 1:
+        return np.atleast_2d(x)
+    else:
+        return x
 
 # Column vector
 def cvec(x):
-    return rvec(x).T
+    z = rvec(x)
+    if z.shape[0] == 1:
+        z = z.T
+    return z
 
 # Apply a column-wise quantile 
 def quantile_mapply(arr, q, axis=0):  

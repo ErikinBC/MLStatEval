@@ -22,14 +22,24 @@ class sensitivity():
         self.interpolate = 'lower'
         if 'interpolate' in kwargs:
             self.interpolate = kwargs['interpolate']
-        print(kwargs)
 
     def oracle(self, thresh):
-        return norm.cdf(self.mu - thresh)
+        cn = None
+        if isinstance(thresh, pd.DataFrame):
+            cn = list(thresh.columns)
+            idx = thresh.index
+        z = norm.cdf(self.mu - thresh)
+        if isinstance(cn, list):
+            z = pd.DataFrame(z, columns=cn, index=idx)
+        return z
 
     @staticmethod
     def stat(y, s, t):
         # y=enc_thresh.y;s=enc_thresh.s;t=0.15#enc_thresh.thresh.point
+        cn = None
+        if isinstance(t, pd.DataFrame):
+            cn = list(t.columns)
+            idx = t.index
         if isinstance(t, float) or isinstance(t, int):
             t = np.array([t])
         if not isinstance(t, np.ndarray):
@@ -49,12 +59,16 @@ class sensitivity():
         sens = tps / ps
         if sens.shape[1] == 1:
             sens = sens.flatten()
+        if isinstance(cn, list):
+            sens = pd.DataFrame(sens, columns = cn, index=idx)
         return sens
 
     # self=enc_thresh.m; y=enc_thresh.y;s=enc_thresh.s;method='bs-q';n_bs=200;seed=1
-    def learn_thresh(self, y, s, gamma, method, n_bs=1000, seed=None):
-        assert method in lst_method
+    def learn_thresh(self, y, s, gamma, n_bs=1000, seed=None):
+        # assert method in lst_method
         assert (gamma >= 0) & (gamma <= 1)
+        # Oracle threshold based on gamma
+        self.thresh_gamma = self.mu + norm.ppf(1-gamma)
         # Make scores into column vectors
         y = cvec(y.copy())
         s = cvec(s.copy())

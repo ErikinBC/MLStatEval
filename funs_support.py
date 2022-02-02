@@ -2,6 +2,12 @@ import os
 import numpy as np
 import pandas as pd
 
+# No different between two lists
+def no_diff(x, y):
+    check1 = len(np.setdiff1d(x, y)) == 0
+    check2 = len(np.setdiff1d(y, x)) == 0
+    return check1 & check2
+
 # Make a folder if it does not exist
 def makeifnot(path):
     if not os.path.exists(path):

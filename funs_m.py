@@ -1,27 +1,26 @@
 # Performance measure functions (m)
 # Each needs to have a oracle, stat, and learn_thresh method
+# http://users.stat.umn.edu/~helwig/notes/bootci-Notes.pdf
 
 import numpy as np
 import pandas as pd
+import bottleneck as bn
 from scipy.stats import norm
 from funs_support import cvec
-from funs_vectorized import quant_by_bool
+from funs_vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
 
 # Quantile, Bootstrap-Quantile, Bootstrap-t, Bootstrap BCa
 lst_method = ['quantile', 'bs-q', 'bs-t', 'bs-bca']
-
 
 """
 Sensitivity (i.e. True Positive Rate)
 """
 class sensitivity():
     # y=enc_thresh.y;s=enc_thresh.s;gamma=0.8;method='quantile'
-    def __init__(self, alpha, mu, p=None, **kwargs):
+    def __init__(self, alpha, mu, p=None):
         self.alpha = alpha
         self.mu = mu
-        self.interpolate = 'lower'
-        if 'interpolate' in kwargs:
-            self.interpolate = kwargs['interpolate']
+        self.interpolate = 'linear'  # Only use linear-quantile method for now
 
     def oracle(self, thresh):
         cn = None
@@ -63,7 +62,7 @@ class sensitivity():
             sens = pd.DataFrame(sens, columns = cn, index=idx)
         return sens
 
-    # self=enc_thresh.m; y=enc_thresh.y;s=enc_thresh.s;method='bs-q';n_bs=200;seed=1
+    # self=enc_thresh.m['sens']; y=enc_thresh.y;s=enc_thresh.s;n_bs=200;seed=1
     def learn_thresh(self, y, s, gamma, n_bs=1000, seed=None):
         # assert method in lst_method
         assert (gamma >= 0) & (gamma <= 1)
@@ -81,13 +80,22 @@ class sensitivity():
         s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
         thresh_bs = quant_by_bool(data=s_bs_val, boolean=(y_bs_val==1), q=1-gamma, interpolate=self.interpolate)
         # (iii) Calculate LOO statistics
-
-        # (iv) Calculate CI approaches
+        thresh_loo = loo_quant_by_bool(data=s, boolean=(y==1), q=1-gamma)
+        thresh_loo_mu = np.expand_dims(bn.nanmean(thresh_loo, axis=1), 1)
+        # (iv) Basic CI approaches
+        z_alpha = norm.ppf(self.alpha)
         ci_quantile = np.quantile(thresh_bs, self.alpha, axis=0)
         se_bs = thresh_bs.std(ddof=1,axis=0)
-        ci_basic = thresh - se_bs*norm.ppf(1-self.alpha)
-        # Return different CIs
-        res_ci = pd.DataFrame({'point':thresh,'quantile':ci_quantile, 'basic':ci_basic})
-        return res_ci
+        ci_basic = thresh + se_bs*z_alpha
+        # (v) BCa calculation
+        zhat0 = norm.ppf((np.sum(thresh_bs < thresh, 0) + 1) / (n_bs + 1))
+        num = bn.nansum((thresh_loo_mu - thresh_loo)**3,axis=1)
+        den = 6* (bn.nansum((thresh_loo_mu - thresh_loo)**2,axis=1))**(3/2)
+        ahat = num / den
+        alpha_adj = norm.cdf(zhat0 + (zhat0+z_alpha)/(1-ahat*(zhat0+z_alpha))).flatten()
+        ci_bca = quant_by_col(thresh_bs, alpha_adj)
 
+        # Return different CIs
+        res_ci = pd.DataFrame({'point':thresh, 'basic':ci_basic, 'quantile':ci_quantile, 'bca':ci_bca})
+        return res_ci
 

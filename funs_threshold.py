@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 from funs_m import sensitivity
-from funs_support import no_diff
 
 lst_attr = ['learn_thresh', 'stat', 'oracle']
 

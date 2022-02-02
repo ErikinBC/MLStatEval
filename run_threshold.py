@@ -4,7 +4,6 @@ import os
 import numpy as np
 import pandas as pd
 import plotnine as pn
-from scipy.stats import norm
 from funs_support import gg_save
 from funs_stats import get_CI
 from funs_threshold import tools_thresh
@@ -13,8 +12,7 @@ dir_base = os.getcwd()
 dir_figures = os.path.join(dir_base, 'figures')
 
 # Different bootstrapping methods
-di_method = {'point':'Naive', 'basic':'BS-Basic', 'quantile':'BS-Quantile'}
-# , 'bca':'BS-BCa'
+di_method = {'point':'Naive', 'basic':'BS-Basic', 'quantile':'BS-Quantile', 'bca':'BS-BCa'}
 di_msr = {'sens':'Sensitivity'}
 
 

@@ -13,27 +13,31 @@ from funs_vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
 lst_method = ['quantile', 'bs-q', 'bs-t', 'bs-bca']
 
 """
-Sensitivity (i.e. True Positive Rate)
+Modular function for either sensitivity or specificity
 """
-class sensitivity():
+class sens_or_spec():
     # y=enc_thresh.y;s=enc_thresh.s;gamma=0.8;method='quantile'
-    def __init__(self, alpha, mu, p=None):
+    def __init__(self, m, alpha=0.05, mu=1, p=None):
+        assert m in ['sens','spec'], 'set m to either "sens" or "spec"'
+        self.m = m
+        assert alpha < 0.5, 'alpha must be less than 50%'
         self.alpha = alpha
         self.mu = mu
-        self.interpolate = 'linear'  # Only use linear-quantile method for now
 
     def oracle(self, thresh):
         cn = None
         if isinstance(thresh, pd.DataFrame):
             cn = list(thresh.columns)
             idx = thresh.index
-        z = norm.cdf(self.mu - thresh)
+        if self.m == 'sens':
+            z = norm.cdf(self.mu - thresh)
+        else:
+            z = norm.cdf(thresh)
         if isinstance(cn, list):
             z = pd.DataFrame(z, columns=cn, index=idx)
         return z
 
-    @staticmethod
-    def stat(y, s, t):
+    def stat(self, y, s, t):
         # y=enc_thresh.y;s=enc_thresh.s;t=0.15#enc_thresh.thresh.point
         cn = None
         if isinstance(t, pd.DataFrame):
@@ -51,40 +55,53 @@ class sensitivity():
         s = s.reshape(y_shape)
         t = t.reshape(t_shape)
         assert len(s.shape) == len(t.shape)
-        # Calculate TPs relative to positives
+        # Calculate sensitivity or specificity
         yhat = np.where(s >= t, 1, 0)
-        tps = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
-        ps = np.sum(y, axis=0)
-        sens = tps / ps
-        if sens.shape[1] == 1:
-            sens = sens.flatten()
+        if self.m == 'sens':
+            tps = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
+            ps = np.sum(y, axis=0)
+            score = tps / ps
+        else:
+            tns = np.sum((y == yhat) * (y == 0), axis=0)  # Intergrate out rows
+            ns = np.sum(1-y, axis=0)
+            score = tns / ns
+        if score.shape[1] == 1:
+            score = score.flatten()
         if isinstance(cn, list):
-            sens = pd.DataFrame(sens, columns = cn, index=idx)
-        return sens
+            score = pd.DataFrame(score, columns = cn, index=idx)
+        return score
 
     # self=enc_thresh.m['sens']; y=enc_thresh.y;s=enc_thresh.s;n_bs=200;seed=1
     def learn_thresh(self, y, s, gamma, n_bs=1000, seed=None):
         # assert method in lst_method
         assert (gamma >= 0) & (gamma <= 1)
         # Oracle threshold based on gamma
-        self.thresh_gamma = self.mu + norm.ppf(1-gamma)
+        if self.m == 'sens':
+            m_gamma = 1-gamma
+            self.thresh_gamma = self.mu + norm.ppf(m_gamma)
+            y = cvec(y.copy())
+            alpha = self.alpha
+        else:
+            m_gamma = gamma
+            self.thresh_gamma = norm.ppf(gamma)
+            y = cvec(1 - y.copy())
+            alpha = 1 - self.alpha
         # Make scores into column vectors
-        y = cvec(y.copy())
         s = cvec(s.copy())
         # (i) Calculate point esimate
-        thresh = quant_by_bool(data=s, boolean=(y==1), q=1-gamma, interpolate=self.interpolate)
+        thresh = quant_by_bool(data=s, boolean=(y==1), q=m_gamma, interpolate='linear')
         # (ii) Calculate bootstrap range
         y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
         shape = (n_bs,)+y.shape
         y_bs_val = y_bs.values.reshape(shape)
         s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
-        thresh_bs = quant_by_bool(data=s_bs_val, boolean=(y_bs_val==1), q=1-gamma, interpolate=self.interpolate)
+        thresh_bs = quant_by_bool(data=s_bs_val, boolean=(y_bs_val==1), q=m_gamma, interpolate='linear')
         # (iii) Calculate LOO statistics
-        thresh_loo = loo_quant_by_bool(data=s, boolean=(y==1), q=1-gamma)
+        thresh_loo = loo_quant_by_bool(data=s, boolean=(y==1), q=m_gamma)
         thresh_loo_mu = np.expand_dims(bn.nanmean(thresh_loo, axis=1), 1)
         # (iv) Basic CI approaches
-        z_alpha = norm.ppf(self.alpha)
-        ci_quantile = np.quantile(thresh_bs, self.alpha, axis=0)
+        z_alpha = norm.ppf(alpha)
+        ci_quantile = np.quantile(thresh_bs, alpha, axis=0)
         se_bs = thresh_bs.std(ddof=1,axis=0)
         ci_basic = thresh + se_bs*z_alpha
         # (v) BCa calculation
@@ -99,3 +116,13 @@ class sensitivity():
         res_ci = pd.DataFrame({'point':thresh, 'basic':ci_basic, 'quantile':ci_quantile, 'bca':ci_bca})
         return res_ci
 
+# Wrapper for sensitivity
+class sensitivity(sens_or_spec):
+  def __init__(self, alpha=0.05, mu=1, p=None):
+      sens_or_spec.__init__(self, m='sens', alpha=alpha, mu=mu, p=p)
+    
+# Wrapper for specificity
+class specificity(sens_or_spec):
+  def __init__(self, alpha=0.05, mu=1, p=None):
+      sens_or_spec.__init__(self, m='spec', alpha=alpha, mu=mu, p=p)
+    

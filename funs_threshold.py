@@ -2,12 +2,12 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from funs_m import sensitivity
+from funs_m import sensitivity, specificity
 
 lst_attr = ['learn_thresh', 'stat', 'oracle']
 
 # Set up dictionary that can be called in
-di_m = {'sens':sensitivity, 'spec':sensitivity, 'prec':sensitivity}
+di_m = {'sens':sensitivity, 'spec':specificity, 'prec':sensitivity}
 
 class tools_thresh():
     """

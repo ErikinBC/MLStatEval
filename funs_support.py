@@ -2,6 +2,23 @@ import os
 import numpy as np
 import pandas as pd
 
+# Check if df is a DataFrame and extract columns and indices
+def get_cn_idx(df):
+    cn, idx = None, None
+    if isinstance(df, pd.DataFrame):
+        cn = list(df.columns)
+        idx = df.index
+    return cn, idx
+
+# Convert operating threshold into column vector
+def clean_thresh(thresh):
+    if isinstance(thresh, float) or isinstance(thresh, int):
+        thresh = np.array([thresh])
+    if not isinstance(thresh, np.ndarray):
+        thresh = np.array(thresh)
+    thresh = cvec(thresh)
+    return thresh
+
 # No different between two lists
 def no_diff(x, y):
     check1 = len(np.setdiff1d(x, y)) == 0

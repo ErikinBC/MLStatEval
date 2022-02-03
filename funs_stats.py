@@ -1,8 +1,40 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import rankdata, skewnorm
-from scipy.optimize import minimize_scalar
+from scipy.stats import rankdata, norm, skewnorm
+from scipy.optimize import minimize_scalar, root_scalar
 from statsmodels.stats.proportion import proportion_confint as prop_CI
+
+# Function to find oracle threshold for Gaussian dist
+def prec_gauss(thresh, mu1, p, mu0=0, s1=1, s0=1):
+    assert mu1 > mu0
+    z1 = (mu1 - thresh)/s1
+    z0 = (mu0 - thresh)/s0
+    term1 = norm.cdf(z1)*p
+    term2 = norm.cdf(z0)*(1-p)
+    ppv = term1/(term1+term2)
+    return ppv
+
+def err_prec(thresh, target, mu, p, square=False):
+    ppv = prec_gauss(thresh, mu, p)
+    err = ppv - target
+    if square:
+        err = err**2
+    return err
+
+# Function to plot threshold/precision trade-off
+def pr_curve(mu1, p, mu0=0, s1=1, s0=1, n_points=100, alpha=0.001):
+    assert mu1 > mu0, 'mu1 must be > mu0'
+    z_alpha = norm.ppf(1-alpha)
+    # (i) Plotting ranges
+    lb1, lb2 = mu0 - z_alpha*s0, mu1 - z_alpha*s1
+    lb = min(lb1, lb2)
+    ub1, ub2 = mu0 + z_alpha*s0, mu1 + z_alpha*s1
+    ub = max(ub1, ub2)
+    thresh_seq = np.linspace(lb, ub, n_points)
+    ppv = prec_gauss(thresh_seq, mu1=mu1, mu0=mu0, s1=s1, s0=s0, p=p)
+    recall = norm.cdf((mu1 - thresh_seq)/s1)
+    res = pd.DataFrame({'thresh':thresh_seq, 'ppv':ppv, 'recall':recall})
+    return res
 
 
 # Probability that one skewnorm is less than another

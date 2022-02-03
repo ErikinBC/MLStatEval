@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import plotnine as pn
 from funs_support import gg_save
-from funs_stats import get_CI
+from funs_stats import get_CI, pr_curve
 from funs_threshold import tools_thresh
 
 dir_base = os.getcwd()
@@ -16,25 +16,62 @@ di_method = {'point':'Naive', 'basic':'BS-Basic', 'quantile':'BS-Quantile', 'bca
 di_msr = {'sens':'Sensitivity', 'spec':'Specificity'}
 
 
+##################################
+# ---- (2) PRECISION CURVES ---- #
+
+# https://arxiv.org/pdf/1810.08635.pdf
+# https://icml.cc/Conferences/2009/papers/309.pdf
+# https://arxiv.org/pdf/1206.4667.pdf
+
+
+mu1 = 1
+p_seq = [0.1, 0.25, 0.5]
+s0_seq = [0.5, 1.1, 10]
+cn_gg = ['p','s0']
+holder = []
+for p in p_seq:
+    for s0 in s0_seq:
+        tmp = pr_curve(mu1, p, s0=s0, alpha=1e-7).assign(p=p, s0=s0)
+        holder.append(tmp)
+res_ppv = pd.concat(holder).reset_index(drop=True)
+res_ppv[cn_gg] = res_ppv[cn_gg].astype(str)
+
+width = len(s0_seq) * 4
+gg_ppv = (pn.ggplot(res_ppv,pn.aes(x='thresh',y='ppv',color='p')) + 
+    pn.theme_bw() + pn.geom_line() + 
+    pn.labs(x='Operating threshold',y='Precition') + 
+    pn.scale_color_discrete(name='P(y=1)') + 
+    pn.facet_wrap('~s0',labeller=pn.label_both,scales='free_x'))
+gg_save('gg_ppv.png', dir_figures, gg_ppv, width, 3)
+
+
 #######################################
 # ---- (1) THRESHOLD AS QUANTILE ---- #
 
 # (i) Run the simulation
-nsim = 2500
+nsim = 20000
+nchunk = 2500
+niter = nsim // nchunk
 n = 100
-seed = 1
 gamma = 0.8
 fmt_gamma = '%i%%' % (gamma*100)
 mu = 1
 enc_thresh = tools_thresh('sens', 'spec', mu=mu)
-enc_thresh.sample(n=n, k=nsim, seed=seed)
-enc_thresh.learn_thresh(gamma=gamma)
-enc_thresh.thresh2oracle()
-enc_thresh.thresh2emp()
-enc_thresh.merge_dicts()
+holder = []
+for i in range(niter):
+    print('--- Iteration %i of %i ---' % (i+1, niter))
+    enc_thresh.sample(n=n, k=nchunk, seed=i)
+    enc_thresh.learn_thresh(gamma=gamma)
+    enc_thresh.thresh2oracle()
+    enc_thresh.thresh2emp()
+    enc_thresh.merge_dicts()
+    tmp_df = enc_thresh.df_res.merge(enc_thresh.thresh_gamma)
+    holder.append(tmp_df)
+df_res = pd.concat(holder).reset_index(drop=True).drop(columns='cidx')
+del holder
 
 # (ii) Coverage by method
-df_res = enc_thresh.df_res.assign(cover = lambda x: np.where(x['oracle'] >= gamma,'>','<')).drop(columns='cidx')
+df_res = df_res.assign(cover = lambda x: np.where(x['oracle'] >= gamma,'>','<'))
 df_res = df_res.merge(enc_thresh.thresh_gamma)
 df_res['method'] = df_res['method'].map(di_method)
 df_res['m'] = df_res['m'].map(di_msr)
@@ -58,17 +95,20 @@ df_thresh = df_text.groupby(['m','method','thresh_gamma']).size().reset_index().
 n_method = df_res['method'].unique().shape[0]
 n_msr = df_res['m'].unique().shape[0]
 width = n_msr*4.0
-height = n_method*3.0
-gg_quant = (pn.ggplot(df_res, pn.aes(x='thresh')) + pn.theme_bw() + 
+height = n_method*3.25
+tmp_res = df_res.assign(method=lambda x: pd.Categorical(x['method'],di_method.values()))
+tmp_thresh = df_thresh.assign(method=lambda x: pd.Categorical(x['method'],di_method.values()))
+tmp_text = df_text.assign(method=lambda x: pd.Categorical(x['method'],di_method.values()))
+gg_quant = (pn.ggplot(tmp_res, pn.aes(x='thresh')) + pn.theme_bw() + 
     pn.labs(x='Empirically chosen threshold',y='Simulation frequency') + 
     pn.geom_histogram(color='grey',fill='grey',alpha=0.5,bins=30) + 
     pn.facet_grid('method~m',scales='free_x') + 
-    pn.geom_vline(pn.aes(xintercept='thresh_gamma'), data=df_thresh, inherit_aes=False) + 
+    pn.geom_vline(pn.aes(xintercept='thresh_gamma'), data=tmp_thresh, inherit_aes=False) + 
     pn.guides(color=False) + 
-    pn.geom_text(pn.aes(x='x', y='y', label='lbl',color='cover'), size=9, data=df_text, inherit_aes=False) + 
+    pn.geom_text(pn.aes(x='x', y='y', label='lbl',color='cover'), size=9, data=tmp_text, inherit_aes=False) + 
     pn.scale_x_continuous(limits=[-1.5, +2.5]))
 gg_save('gg_quant.png', dir_figures, gg_quant, width, height)
 
 
-#######################################
-# ---- (2) SHOW CHOICE ON DIABETES DATASET ---- #
+##################################
+# ---- (X) DIABETES DATASET ---- #

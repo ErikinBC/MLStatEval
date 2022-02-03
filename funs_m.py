@@ -2,33 +2,113 @@
 # Each needs to have a oracle, stat, and learn_thresh method
 # http://users.stat.umn.edu/~helwig/notes/bootci-Notes.pdf
 
+from glob import glob
 import numpy as np
 import pandas as pd
 import bottleneck as bn
 from scipy.stats import norm
-from funs_support import cvec
+from funs_support import cvec, get_cn_idx, clean_thresh
 from funs_vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
 
-# Quantile, Bootstrap-Quantile, Bootstrap-t, Bootstrap BCa
-lst_method = ['quantile', 'bs-q', 'bs-t', 'bs-bca']
+# # Quantile, Bootstrap-Quantile, Bootstrap-t, Bootstrap BCa
+# lst_method = ['quantile', 'bs-q', 'bs-t', 'bs-bca']
+
+"""
+Precision function
+"""
+class precision():
+    def __init__(self, alpha=0.05, mu=1, p=None):
+        assert alpha < 0.5, 'alpha must be less than 50%'
+        self.alpha = alpha
+        self.mu = mu
+        assert (p > 0) & (p < 1), 'p must be between 0 and 1'
+        self.p = p
+
+    """
+    Maps an operating threshold to an oracle precosopm
+    """
+    def oracle(self, thresh):
+        cn, idx = get_cn_idx(thresh)
+        # TPR
+        term1 = norm.cdf(self.mu - thresh)*self.p
+        # FPR
+        term2 = norm.cdf(-thresh) * (1-self.p)
+        z = term1 / (term1 + term2)
+        if isinstance(cn, list):
+            z = pd.DataFrame(z, columns=cn, index=idx)
+        return z
+
+    """
+    Calculates sensitivity or specificity
+    y:          Binary labels
+    s:          Scores
+    thresh:     Operating threshold
+    """
+    def stat(self, y, s, thresh):
+        cn, idx = get_cn_idx(thresh)
+        thresh = clean_thresh(thresh)
+        # (i) Ensure operations broadcast
+        y_shape = y.shape + (1,)
+        t_shape = (1,) + thresh.shape
+        y = y.reshape(y_shape)
+        s = s.reshape(y_shape)
+        thresh = thresh.reshape(t_shape)
+        assert len(s.shape) == len(thresh.shape)
+        # (ii) Calculate metric
+        yhat = np.where(s >= thresh, 1, 0)
+        tp = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
+        p = np.sum(yhat, axis=0)
+        score = tp / p
+        if score.shape[1] == 1:
+            score = score.flatten()
+        if isinstance(cn, list):
+            score = pd.DataFrame(score, columns = cn, index=idx)
+        return score
+
+    """
+    Different CI approaches for threshold for gamma target
+    y:          Binary labels
+    s:          Scores
+    gamma:      Target sens or spec
+    n_bs:       # of bootstrap iterations
+    seed:       Random seed
+    """
+    def learn_thresh(self, y, s, gamma, n_bs=1000, seed=None):
+        assert (gamma >= 0) & (gamma <= 1)
+        # Oracle threshold based on gamma
+
+
+
+# thresh, p, n, k = 1, 0.25, 100, 250
+# self = precision(alpha=0.05,mu=1,p=p)
+# y=np.where(np.random.rand(n,k)>1-p,1,0);s=np.random.randn(n,k)
+# self.oracle(thresh)
+# self.stat(y, s, thresh).mean()
+
+
 
 """
 Modular function for either sensitivity or specificity
 """
 class sens_or_spec():
-    # y=enc_thresh.y;s=enc_thresh.s;gamma=0.8;method='quantile'
+    """
+    m:          Performance measure function (either "sens" or "spec")
+    alpha:      Type-I error rate
+    mu:         Mean of positive class normal dist
+    p:          P(y==1) - Not relevant for sens/spec
+    """
     def __init__(self, m, alpha=0.05, mu=1, p=None):
         assert m in ['sens','spec'], 'set m to either "sens" or "spec"'
         self.m = m
-        assert alpha < 0.5, 'alpha must be less than 50%'
         self.alpha = alpha
         self.mu = mu
+        self.p = p
 
+    """
+    Maps an operating threshold to an oracle performance measure
+    """
     def oracle(self, thresh):
-        cn = None
-        if isinstance(thresh, pd.DataFrame):
-            cn = list(thresh.columns)
-            idx = thresh.index
+        cn, idx = get_cn_idx(thresh)
         if self.m == 'sens':
             z = norm.cdf(self.mu - thresh)
         else:
@@ -37,26 +117,24 @@ class sens_or_spec():
             z = pd.DataFrame(z, columns=cn, index=idx)
         return z
 
-    def stat(self, y, s, t):
-        # y=enc_thresh.y;s=enc_thresh.s;t=0.15#enc_thresh.thresh.point
-        cn = None
-        if isinstance(t, pd.DataFrame):
-            cn = list(t.columns)
-            idx = t.index
-        if isinstance(t, float) or isinstance(t, int):
-            t = np.array([t])
-        if not isinstance(t, np.ndarray):
-            t = np.array(t)
-        t = cvec(t)
+    """
+    Calculates sensitivity or specificity
+    y:          Binary labels
+    s:          Scores
+    thresh:     Operating threshold
+    """
+    def stat(self, y, s, thresh):
+        cn, idx = get_cn_idx(thresh)
+        thresh = clean_thresh(thresh)
         # Ensure operations broadcast
         y_shape = y.shape + (1,)
-        t_shape = (1,) + t.shape
+        t_shape = (1,) + thresh.shape
         y = y.reshape(y_shape)
         s = s.reshape(y_shape)
-        t = t.reshape(t_shape)
-        assert len(s.shape) == len(t.shape)
+        thresh = thresh.reshape(t_shape)
+        assert len(s.shape) == len(thresh.shape)
         # Calculate sensitivity or specificity
-        yhat = np.where(s >= t, 1, 0)
+        yhat = np.where(s >= thresh, 1, 0)
         if self.m == 'sens':
             tps = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
             ps = np.sum(y, axis=0)
@@ -71,9 +149,15 @@ class sens_or_spec():
             score = pd.DataFrame(score, columns = cn, index=idx)
         return score
 
-    # self=enc_thresh.m['sens']; y=enc_thresh.y;s=enc_thresh.s;n_bs=200;seed=1
+    """
+    Different CI approaches for threshold for gamma target
+    y:          Binary labels
+    s:          Scores
+    gamma:      Target sens or spec
+    n_bs:       # of bootstrap iterations
+    seed:       Random seed
+    """
     def learn_thresh(self, y, s, gamma, n_bs=1000, seed=None):
-        # assert method in lst_method
         assert (gamma >= 0) & (gamma <= 1)
         # Oracle threshold based on gamma
         if self.m == 'sens':

@@ -2,12 +2,12 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
-from funs_m import sensitivity, specificity
+from funs_m import sensitivity, specificity, precision
 
 lst_attr = ['learn_thresh', 'stat', 'oracle']
 
 # Set up dictionary that can be called in
-di_m = {'sens':sensitivity, 'spec':specificity, 'prec':sensitivity}
+di_m = {'sens':sensitivity, 'spec':specificity, 'prec':precision}
 
 class tools_thresh():
     """
@@ -23,7 +23,7 @@ class tools_thresh():
         assert all([m in di_m for m in args]), 'All kwargs need to be in lst_m'
         self.m = {k:None  for k in args}
         for k in args:
-            self.m[k] = di_m[k](alpha=alpha, mu=mu)  # Initialize performance measure class
+            self.m[k] = di_m[k](alpha=alpha, mu=mu, p=p)  # Initialize performance measure class
             assert all([hasattr(self.m[k],attr) for attr in lst_attr]), 'Performance measure %s needs the following attributes: %s' % (k, lst_attr)
 
         # (ii) Statistical testing
@@ -95,6 +95,9 @@ class tools_thresh():
         
     """
     Get empirical performance measure
+    y:          Binary labels
+    s:          Scores
+    thresh:     Operating threshold
     """
     def thresh2emp(self, y=None, s=None, thresh=None):
         # y=None;s=None;thresh=None

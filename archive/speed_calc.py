@@ -42,10 +42,7 @@ method = res_both['method'][0]
 print(res_both)
 print('The fast root-finder is: %s' % method)
 
-# (iv) Can we speed up find with fast-start?
 
-def find_thresh_prec(target, mu, p):
-    1
 
 
 

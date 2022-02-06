@@ -1,12 +1,15 @@
 #!/bin/bash
 
 env_name=calib
-# Check to see if miniconda environment exists
-grep_env=$(ls ~/miniconda3/envs | grep $env_name)
+# Check to see if anaconda/miniconda environment exists
+path_conda=$(which conda)
+path_conda=$(echo $path_conda | awk '{split($0,a,"3/"); print a[1]}')3
+grep_env=$(ls $path_conda/envs | grep $env_name)
 n_char=$(echo $grep_env | wc -w)
 
 if [[ "$n_char" -eq 0 ]]; then
     echo "Installing environment"
+    # conda create --name $env_name python=3.9
     # conda install -c conda-forge numpy pandas plotnine scikit-learn bottleneck 
     conda create --name $env_name --file conda_env.txt python=3.9
 else
@@ -24,7 +27,7 @@ for pckg in $pckgs_pip; do
     n_char=$(echo $grep_env | wc -w)
     if [[ "$n_char" -eq 0 ]]; then
         echo "Installing $pckg"
-        python3 -m pip install $pckg
+        pip3 install $pckg
     else
         echo "$pckg already exists"
     fi

@@ -5,7 +5,7 @@ lst_libs = c('stringr', 'rvest', 'dplyr', 'tidyr', 'zoo', 'ggplot2', 'cowplot')
 for (lib in lst_libs) {
   if (!(lib %in% avail_packages)) {
     print(sprintf('Installing package: %s', lib))
-    install.packages(lib)
+    install.packages(lib, repos='http://cran.us.r-project.org')
   }
   library(lib, character.only = TRUE)
 }

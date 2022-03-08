@@ -4,7 +4,7 @@ Rplots.pdf
 *.Rproj*
 .Rhistory
 .Rproj.user
-__pycache__/
+*__pycache__*
 conda_env.txt
 .DS_store
 

@@ -16,12 +16,15 @@ def rvec(x):
     else:
         return x
 
-# Column vector
+# Return as a column vector if 2d or less
 def cvec(x):
-    z = rvec(x)
-    if z.shape[0] == 1:
-        z = z.T
-    return z
+    if len(x.shape) <= 2:
+        z = rvec(x)
+        if z.shape[0] == 1:
+            z = z.T
+        return z
+    else:
+        return z
 
 # Check that float is between 0-1
 def check01(x, inclusive=False):
@@ -45,17 +48,36 @@ def get_cn_idx(df):
         idx = df.index
     return cn, idx
 
+
 # Convert operating threshold into column vector
 def clean_threshold(thresh):
-    if isinstance(thresh, float) or isinstance(thresh, int):
-        thresh = np.array([thresh])
-    if not isinstance(thresh, np.ndarray):
-        thresh = np.array(thresh)
-    thresh = cvec(thresh)
-    return thresh
+    if isinstance(threshold, float) or isinstance(threshold, int):
+        threshold = np.array([threshold])
+    if not isinstance(threshold, np.ndarray):
+        threshold = np.array(threshold)
+    threshold = cvec(threshold)
+    return threshold
 
+# Ensure labels and scores are column-vector arrays
+def clean_y_s(y, s):
+    yv = cvec(y)
+    sv = cvec(s)
+    return yv, sv
 
-
+# Clean up labels, scores, and thresholds
+def clean_y_s_threshold(y, s, threshold):
+    cn, idx = get_cn_idx(threshold)  # # If threshold is a DataFrame, extract information
+    threshold = clean_threshold(threshold)  # Returns as column vector
+    # Ensure operations broadcast
+    y_shape = y.shape + (1,)
+    t_shape = (1,) + threshold.shape
+    y = y.reshape(y_shape)
+    s = s.reshape(y_shape)
+    threshold = threshold.reshape(t_shape)
+    assert y.shape == s.shape, 'y and s must have the same shape!'
+    assert len(s.shape) == len(threshold.shape), 'Number of dimensions must match between s/y and threshold'
+    assert s.shape[1] == threshold.shape[1], 'Number of columns most align between threshold and shape'
+    return cn, idx, y, s, threshold
 
 # # No different between two lists
 # def no_diff(x, y):

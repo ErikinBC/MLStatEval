@@ -13,6 +13,7 @@ n, k = 250, 10
 normal_dgp = gaussian_mixture(m=m)
 normal_dgp.set_params(p, mu1, mu0, sd1, sd0)
 y_sim, s_sim = normal_dgp.gen_mixture(n, k, seed=1234)
+y, s = normal_dgp.gen_mixture(n, k, seed=1234)
 
 # (ii) Set trial target parameters
 alpha = 0.05  # type-I error

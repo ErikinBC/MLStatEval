@@ -36,7 +36,7 @@ class classification():
         # self.lst_bs_method = ['']
 
 
-    def set_threshold(self, y, s, method):
+    def set_threshold(self, y, s, method, **args):
         """
         Learn threshold to optimize performance measure
         
@@ -52,7 +52,7 @@ class classification():
         self.threshold_method = method
         assert check_binary(y), 'y must be array/matrix of only {0,1}!'
         assert len(y) == len(s), 'y and s must be the same length!'
-        self.threshold_hat = self.m.learn_threshold(y, s, method)
+        self.threshold_hat = self.m.learn_threshold(y=y, s=s, method=method, gamma=self.gamma, **args)
         
 
     def calculate_power(self, method='one-sided'):

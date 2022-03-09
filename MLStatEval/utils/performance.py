@@ -2,23 +2,51 @@
 # Each needs to have a oracle, stat, and learn_thresh method
 # http://users.stat.umn.edu/~helwig/notes/bootci-Notes.pdf
 
+import sys
 import numpy as np
 import pandas as pd
 import bottleneck as bn
 from scipy.stats import norm
 
 # Internal packages
-from MLStatEval.utils.utils import cvec, get_cn_idx, clean_threshold, clean_y_s_threshold
+from MLStatEval.utils.utils import check01, cvec, get_cn_idx, clean_y_s, clean_y_s_threshold
 from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
 
 
+# List of valid methods for .learn_threshold
+# point estimate, se(BS), Quantile, Bootstrap BCa
+lst_method = ['point', 'basic', 'percentile', 'bca']
+
+# self = sens_or_spec(choice='sensitivity', method='percentile', alpha=0.05, n_bs=1000, seed=None)
 class sens_or_spec():
-    def __init__(self, choice):    
+    def __init__(self, choice, method='percentile', alpha=0.05, n_bs=1000, seed=None):    
         """
         Modular function for either sensitivity or specificity (avoids duplicated code)
+
+        choice:         String choice for either "sensitivity" or "specificity"
+        alpha:          Type-I error rate (for threshold inequality)
         """
         assert choice in ['sensitivity', 'specificity']
         self.choice = choice
+        # Assign j label for use later
+        self.j = 0
+        if choice == 'sensitivity':
+            self.j = 1
+        if isinstance(method, str):
+            assert method in lst_method, 'method for learn_threshold must be one of: %s' % lst_method
+            self.method = [method]
+        else:
+            assert all([meth in lst_method for meth in method]), 'method list must only contain valid methods: %s' % lst_method
+        assert check01(alpha), 'alpha needs to be between (0,1)'
+        self.alpha = alpha
+        assert n_bs > 0, 'number of bootstrap iterations must be positive!'
+        self.n_bs = int(n_bs)
+        if seed is not None:
+            assert seed > 0, 'seed must be positive!'
+            self.seed = int(seed)
+        else:
+            self.seed = None
+            
 
     def statistic(self, y, s, threshold):
         """
@@ -29,7 +57,6 @@ class sens_or_spec():
         """
         # Clean up user input
         cn, idx, y, s, threshold = clean_y_s_threshold(y, s, threshold)
-
         # Calculate sensitivity or specificity
         yhat = np.where(s >= threshold, 1, 0)
         if self.m == 'sens':
@@ -51,46 +78,62 @@ class sens_or_spec():
     n_bs:       # of bootstrap iterations
     seed:       Random seed
     """
-    def learn_threshold(self, y, s, gamma, n_bs=1000, seed=None):
-        assert (gamma >= 0) & (gamma <= 1)
-        # Oracle threshold based on gamma
-        if self.m == 'sens':
+    # NEED TO CHECK FOR BOTH SENS & SPEC!!!
+    def learn_threshold(self, y, s, gamma):
+        assert check01(gamma), 'gamma needs to be between (0,1)'
+        # Do we want to take the gamma or 1-gamma quantile of score distribution?
+        m_gamma = gamma
+        if self.choice == 'sensitivity':
             m_gamma = 1-gamma
-            self.thresh_gamma = self.mu + norm.ppf(m_gamma)
-            y = cvec(y.copy())
-            alpha = self.alpha
-        else:
-            m_gamma = gamma
-            self.thresh_gamma = norm.ppf(gamma)
-            y = cvec(1 - y.copy())
-            alpha = 1 - self.alpha
+        # Do we want to add or subtract off z standard deviations?
+        z_alpha = norm.ppf(self.alpha)
+        m_alpha = self.alpha
+        if self.choice == 'specificity':
+            m_alpha = 1 - self.alpha
+        q_alpha = norm.ppf(m_alpha)
         # Make scores into column vectors
-        s = cvec(s.copy())
-        # (i) Calculate point esimate
-        thresh = quant_by_bool(data=s, boolean=(y==1), q=m_gamma, interpolate='linear')
-        # (ii) Calculate bootstrap range
-        y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
-        shape = (n_bs,)+y.shape
+        y, s = clean_y_s(y, s)
+        y_bool = (y==self.j)
+        # Calculate point estimate and bootstrap
+        thresh = quant_by_bool(data=s, boolean=y_bool, q=m_gamma, interpolate='linear')
+        y_bs = pd.DataFrame(y).sample(frac=self.n_bs, replace=True, random_state=self.seed)
+        shape = (self.n_bs,)+y.shape
         y_bs_val = y_bs.values.reshape(shape)
         s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
-        thresh_bs = quant_by_bool(data=s_bs_val, boolean=(y_bs_val==1), q=m_gamma, interpolate='linear')
-        # (iii) Calculate LOO statistics
-        thresh_loo = loo_quant_by_bool(data=s, boolean=(y==1), q=m_gamma)
-        thresh_loo_mu = np.expand_dims(bn.nanmean(thresh_loo, axis=1), 1)
-        # (iv) Basic CI approaches
-        z_alpha = norm.ppf(alpha)
-        ci_quantile = np.quantile(thresh_bs, alpha, axis=0)
-        se_bs = thresh_bs.std(ddof=1,axis=0)
-        ci_basic = thresh + se_bs*z_alpha
-        # (v) BCa calculation
-        zhat0 = norm.ppf((np.sum(thresh_bs < thresh, 0) + 1) / (n_bs + 1))
-        num = bn.nansum((thresh_loo_mu - thresh_loo)**3,axis=1)
-        den = 6* (bn.nansum((thresh_loo_mu - thresh_loo)**2,axis=1))**(3/2)
-        ahat = num / den
-        alpha_adj = norm.cdf(zhat0 + (zhat0+z_alpha)/(1-ahat*(zhat0+z_alpha))).flatten()
-        ci_bca = quant_by_col(thresh_bs, alpha_adj)
+        y_bs_bool = (y_bs_val==self.j)
+        thresh_bs = quant_by_bool(data=s_bs_val, boolean=y_bs_bool, q=m_gamma, interpolate='linear')
+        # Return based on method
+        di_thresh = dict.fromkeys(self.method)
+        if 'point' in self.method:
+            # i) "point": point esimate
+            thresh_point = thresh
+            di_thresh['point'] = thresh_point
+        elif 'basic' in self.method:
+            # ii) "basic": point estimate ± standard error*quantile
+            se_bs = thresh_bs.std(ddof=1,axis=0)
+            thresh_basic = thresh + se_bs*q_alpha
+            di_thresh['basic'] = thresh_basic
+        elif 'percentile' in self.method:
+            # iii) "percentile": Use the alpha/1-alpha percentile of BS dist
+            thresh_perc = np.quantile(thresh_bs, m_alpha, axis=0)
+            di_thresh['percentile'] = thresh_perc
+        elif 'bca' in self.method:
+            # iv) Bias-corrected and accelerated
+            # Calculate LOO statistics
+            thresh_loo = loo_quant_by_bool(data=s, boolean=y_bool, q=m_gamma)
+            thresh_loo_mu = np.expand_dims(bn.nanmean(thresh_loo, axis=1), 1)
+            # BCa calculation
+            zhat0 = norm.ppf((np.sum(thresh_bs < thresh, 0) + 1) / (self.n_bs + 1))
+            num = bn.nansum((thresh_loo_mu - thresh_loo)**3,axis=1)
+            den = 6* (bn.nansum((thresh_loo_mu - thresh_loo)**2,axis=1))**(3/2)
+            ahat = num / den
+            alpha_adj = norm.cdf(zhat0 + (zhat0+z_alpha)/(1-ahat*(zhat0+z_alpha))).flatten()
+            thresh_bca = quant_by_col(thresh_bs, alpha_adj)
+            di_thresh['bca'] = thresh_bca
+        else:
+            sys.exit('How did we get here?!')
         # Return different CIs
-        res_ci = pd.DataFrame({'point':thresh, 'basic':ci_basic, 'quantile':ci_quantile, 'bca':ci_bca})
+        res_ci = pd.DataFrame.from_dict(di_thresh)
         return res_ci
 
 
@@ -119,10 +162,6 @@ class specificity(sens_or_spec):
   def __init__(self, alpha=0.05, mu=1, p=None):
       sens_or_spec.__init__(self, m='spec', alpha=alpha, mu=mu, p=p)
 
-
-
-# # Quantile, Bootstrap-Quantile, Bootstrap-t, Bootstrap BCa
-# lst_method = ['basic', 'percentile', 'studentized', 'bca']
 
 class precision():
     def oracle(self, thresh):

@@ -2,74 +2,36 @@
 # Each needs to have a oracle, stat, and learn_thresh method
 # http://users.stat.umn.edu/~helwig/notes/bootci-Notes.pdf
 
-from glob import glob
 import numpy as np
 import pandas as pd
 import bottleneck as bn
 from scipy.stats import norm
-from utils import cvec, get_cn_idx, clean_thresh
-from funs_vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
 
-class base_m():
-    """
-    Base class used for different performance measures
-    alpha:      Type-I error rate
-    mu:         Mean of positive class normal dist
-    p:          P(y==1) - Not relevant for sens/spec
-    """
-    def __init__(self, alpha=0.05, mu=1, p=None):
-        assert alpha < 0.5, 'alpha must be less than 50%'
-        self.alpha = alpha
-        self.mu = mu
-        assert (p > 0) & (p < 1), 'p must be between 0 and 1'
-        self.p = p
+# Internal packages
+from MLStatEval.utils.utils import cvec, get_cn_idx, clean_threshold, clean_y_s_threshold
+from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
 
 
-"""
-Modular function for either sensitivity or specificity
-"""
-class sens_or_spec(base_m):
-    def __init__(self, alpha=0.05, mu=1, p=None):
-      sens_or_spec.__init__(self, m='sens')
-
-    def __init__(self, m):
+class sens_or_spec():
+    def __init__(self, choice):    
         """
-        m:          Performance measure function (either "sens" or "spec")
+        Modular function for either sensitivity or specificity (avoids duplicated code)
         """
-        assert m in ['sens','spec'], 'set m to either "sens" or "spec"'
-        self.m = m
+        assert choice in ['sensitivity', 'specificity']
+        self.choice = choice
 
-    """
-    Maps an operating threshold to an oracle performance measure
-    """
-    def oracle(self, thresh):
-        cn, idx = get_cn_idx(thresh)
-        if self.m == 'sens':
-            z = norm.cdf(self.mu - thresh)
-        else:
-            z = norm.cdf(thresh)
-        if isinstance(cn, list):
-            z = pd.DataFrame(z, columns=cn, index=idx)
-        return z
+    def statistic(self, y, s, threshold):
+        """
+        Calculates sensitivity or specificity
+        y:                  Binary labels
+        s:                  Scores
+        threshold:          Operating threshold
+        """
+        # Clean up user input
+        cn, idx, y, s, threshold = clean_y_s_threshold(y, s, threshold)
 
-    """
-    Calculates sensitivity or specificity
-    y:          Binary labels
-    s:          Scores
-    thresh:     Operating threshold
-    """
-    def stat(self, y, s, thresh):
-        cn, idx = get_cn_idx(thresh)
-        thresh = clean_thresh(thresh)
-        # Ensure operations broadcast
-        y_shape = y.shape + (1,)
-        t_shape = (1,) + thresh.shape
-        y = y.reshape(y_shape)
-        s = s.reshape(y_shape)
-        thresh = thresh.reshape(t_shape)
-        assert len(s.shape) == len(thresh.shape)
         # Calculate sensitivity or specificity
-        yhat = np.where(s >= thresh, 1, 0)
+        yhat = np.where(s >= threshold, 1, 0)
         if self.m == 'sens':
             tps = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
             ps = np.sum(y, axis=0)
@@ -89,7 +51,7 @@ class sens_or_spec(base_m):
     n_bs:       # of bootstrap iterations
     seed:       Random seed
     """
-    def learn_thresh(self, y, s, gamma, n_bs=1000, seed=None):
+    def learn_threshold(self, y, s, gamma, n_bs=1000, seed=None):
         assert (gamma >= 0) & (gamma <= 1)
         # Oracle threshold based on gamma
         if self.m == 'sens':
@@ -131,25 +93,38 @@ class sens_or_spec(base_m):
         res_ci = pd.DataFrame({'point':thresh, 'basic':ci_basic, 'quantile':ci_quantile, 'bca':ci_bca})
         return res_ci
 
+
+# """
+# Maps an operating threshold to an oracle performance measure
+# """
+# def oracle(self, thresh):
+#     cn, idx = get_cn_idx(thresh)
+#     if self.m == 'sens':
+#         z = norm.cdf(self.mu - thresh)
+#     else:
+#         z = norm.cdf(thresh)
+#     if isinstance(cn, list):
+#         z = pd.DataFrame(z, columns=cn, index=idx)
+#     return z
+
+
 # Wrapper for sensitivity
 class sensitivity(sens_or_spec):
-  def __init__(self, alpha=0.05, mu=1, p=None):
-      sens_or_spec.__init__(self, m='sens', alpha=alpha, mu=mu, p=p)
-    
+  def __init__(self):
+      sens_or_spec.__init__(self, choice='sensitivity')
+
+
 # Wrapper for specificity
 class specificity(sens_or_spec):
   def __init__(self, alpha=0.05, mu=1, p=None):
       sens_or_spec.__init__(self, m='spec', alpha=alpha, mu=mu, p=p)
-    
-
 
 
 
 # # Quantile, Bootstrap-Quantile, Bootstrap-t, Bootstrap BCa
-# lst_method = ['quantile', 'bs-q', 'bs-t', 'bs-bca']
+# lst_method = ['basic', 'percentile', 'studentized', 'bca']
 
-class precision(base_m):
-
+class precision():
     def oracle(self, thresh):
         """
         Maps an operating threshold to an oracle precision

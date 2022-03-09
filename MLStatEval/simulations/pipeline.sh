@@ -8,32 +8,21 @@ echo "pipeline is here = "$dir_here
 env_name=MLStatEval
 source $dir_here/set_env.sh $dir_here $env_name
 
-# ---- (1) Rscripts ---- #
-# (i) Get the number of arXiv papers
-Rscript $dir_here/get_arxiv.R $dir_here
-#   output:     ~/figures/gg_arxiv.png
+# # ---- (1) Rscripts ---- #
+# # (i) Get the number of arXiv papers
+# Rscript $dir_here/get_arxiv.R $dir_here
+# #   output:     ~/figures/gg_arxiv.png
 
-# (ii) Get the number of FDA approvals
-Rscript $dir_here/get_fda.R $dir_here
-#   output:     ~/figures/gg_fda.png
-# ---------------------- #
+# # (ii) Get the number of FDA approvals
+# Rscript $dir_here/get_fda.R $dir_here
+# #   output:     ~/figures/gg_fda.png
+# # ---------------------- #
 
 
 # ---- (2) Python ---- #
 
+python -m MLStatEval.run
+
 # -------------------- #
-
-# # (3) Threshold tools
-# python run_threshold.py
-# #   output:     ~/
-
-# ------ (X) ROC CURVE ------ #
-
-# echo "--- (1) gen_figures.py ---"
-# python gen_figures.py
-
-# echo "--- (2) sim_power.py ---"
-# # Coverage experiments for power
-# python sim_power.py
 
 echo "~~~ End of pipeline.sh ~~~"

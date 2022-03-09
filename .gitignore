@@ -7,4 +7,4 @@ Rplots.pdf
 *__pycache__*
 conda_env.txt
 .DS_store
-
+.vscode

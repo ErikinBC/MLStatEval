@@ -1,6 +1,6 @@
 # Functions that do vectorized operations for different summary statistics
 import numpy as np
-from funs_support import cvec
+from utils import cvec
 
 def vec_arange(starts, lengths):
     # Repeat start position index length times and concatenate

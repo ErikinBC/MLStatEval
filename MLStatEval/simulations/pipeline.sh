@@ -7,18 +7,21 @@ echo "pipeline is here = "$dir_here
 # Load the conda environment
 env_name=MLStatEval
 source $dir_here/set_env.sh $dir_here $env_name
-# assigns variable path_Rscript
 
 # ---- (1) Rscripts ---- #
 # (i) Get the number of arXiv papers
-$path_Rscript $dir_here/get_arxiv.R
+Rscript $dir_here/get_arxiv.R $dir_here
 #   output:     ~/figures/gg_arxiv.png
 
 # (ii) Get the number of FDA approvals
-$path_Rscript $dir_here/get_fda.R
+Rscript $dir_here/get_fda.R $dir_here
 #   output:     ~/figures/gg_fda.png
 # ---------------------- #
 
+
+# ---- (2) Python ---- #
+
+# -------------------- #
 
 # # (3) Threshold tools
 # python run_threshold.py

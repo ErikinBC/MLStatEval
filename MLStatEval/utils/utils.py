@@ -2,6 +2,20 @@ import os
 import numpy as np
 import pandas as pd
 
+# Check that float is between 0-1
+def check01(x, inclusive=False):
+    if inclusive:
+        check = (x >= 0) & (x <= 1)
+    else:
+        check = (x > 0) & (x < 1)
+    return check
+
+# Check that array is all zeros or ones
+def check_binary(x):
+    ux = np.unique(x)
+    check = all([z in [0,1] for z in ux])
+    return check
+
 # Check if df is a DataFrame and extract columns and indices
 def get_cn_idx(df):
     cn, idx = None, None

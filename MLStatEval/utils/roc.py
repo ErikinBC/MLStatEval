@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 from scipy.stats import norm, t
-from funs_support import rvec, cvec, quantile_mapply
+from utils import rvec, cvec, quantile_mapply
 
 class dgp_roc():
     """

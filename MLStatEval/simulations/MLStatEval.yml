@@ -2,16 +2,12 @@ name: MLStatEval
 channels:
   - defaults
   - conda-forge
-  - bcg_gamma
 dependencies:
   - numpy=1.21.2
   - pandas=1.4.1
   - pip=21.2.4
   - plotnine=0.8.0
   - python=3.9
-  - r-base=4.1.2
-  - scikit-learn=1.0.2
-  - sklearndf=2.0
   - pip:
     - patchworklib==0.3.1
 

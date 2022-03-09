@@ -3,7 +3,7 @@ from time import time
 import numpy as np
 import pandas as pd
 import plotnine as pn
-from funs_support import makeifnot
+from utils import makeifnot
 from funs_stats import dgp_bin, get_CI
 
 dir_base = os.getcwd()

@@ -4,7 +4,6 @@
 dir_here=$1
 env_name=$2
 
-# --- (1) python --- #
 # Check to see if anaconda/miniconda environment exists
 path_conda=$(which conda)
 path_conda=$(echo $path_conda | awk '{split($0,a,"3/"); print a[1]}')3
@@ -19,9 +18,14 @@ else
 fi
 conda activate $env_name
 
-# --- (2) R --- #
 
-# Set R in conda to path
-path_Rscript=$path_conda/envs/MLStatEval/bin/Rscript
+# Check an activate R path exists
+path_R=$(which R)
+n_char=$(echo $path_R | wc -w)
+if [[ "$n_char" -eq 0 ]]; then
+    echo "Error! An installed of R was not found"
+    return
+fi
+
 
 echo "~~~ End of set_env.sh ~~~"

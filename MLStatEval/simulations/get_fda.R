@@ -1,3 +1,7 @@
+# GET THE NUMBER OF ML-RELATED FDA APPROVALS
+args = commandArgs(trailingOnly=TRUE)
+dir_base = args[1]
+
 avail_packages = rownames(installed.packages())
 lst_libs = c('stringr', 'rvest', 'zoo', 'dplyr', 'tidyr', 'ggplot2', 'cowplot')
 for (lib in lst_libs) {
@@ -8,7 +12,7 @@ for (lib in lst_libs) {
   library(lib, character.only = TRUE)
 }
 
-dir_base = getwd()
+
 dir_figures = file.path(dir_base, 'figures')
 if (!dir.exists(dir_figures)) {
   dir.create(dir_figures)

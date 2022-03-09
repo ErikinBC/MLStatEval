@@ -1,5 +1,5 @@
-# Propspective evaluation of ML models
+# Files in MLStatEval
 
-This repo has contains the code needed to produce all of the results and figures found in this [arXiv paper](TBD). 
+Most files in MLStatEval are for internal use. The two main classes are to be found in `trial.py`: `classification` and `regression`.
 
-Run `simulations/pipeline.sh` to create all figures.
+

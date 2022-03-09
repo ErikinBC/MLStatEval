@@ -1,0 +1,1 @@
+# To be able to run these scripts, from MLStatEval-git run "python -m MLStatEval.tests.test_{}"

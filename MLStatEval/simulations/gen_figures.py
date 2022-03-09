@@ -5,7 +5,7 @@ import plotnine as pn
 import patchworklib as pw
 from matplotlib import rc
 from scipy.stats import skewnorm, norm
-from funs_support import makeifnot, gg_save, grid_save, interp_df
+from utils import makeifnot, gg_save, grid_save, interp_df
 from funs_stats import dgp_bin, emp_roc_curve, auc_rank, find_auroc
 dir_base = os.getcwd()
 dir_figures = os.path.join(dir_base, 'figures')

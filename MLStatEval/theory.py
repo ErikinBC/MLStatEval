@@ -1,6 +1,7 @@
 # Class to support generation of Gaussian mixture
-from this import d
 import numpy as np
+import pandas as pd
+from scipy.stats import norm
 
 # Internal methods
 from MLStatEval.utils.utils import check_binary, check01
@@ -9,13 +10,8 @@ from MLStatEval.utils.performance import sensitivity, specificity, precision
 di_performance = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
 
 class gaussian_mixture():
-    def __init__(self, m=None):
-        """
-        m:              Performance measure
-        """
-        di_keys = list(di_performance)
-        assert m in di_keys, 'performance measure (m) must be one of: %s' % di_keys
-
+    def __init__(self) -> None:
+        pass
 
     def set_params(self, p=None, mu1=None, mu0=None, sd1=None, sd0=None, empirical=False):
         """
@@ -40,6 +36,8 @@ class gaussian_mixture():
             self.p = p
             self.mu1, self.sd1 = mu1, sd1
             self.mu0, self.sd0 = mu0, sd0
+        # Calculate the ground-truth AUROC
+        self.auroc = norm.cdf((self.mu1 - self.mu0) / np.sqrt(self.sd1**2 + self.sd0**2))
 
 
     def set_ys(self, y, s):
@@ -53,11 +51,26 @@ class gaussian_mixture():
         assert len(y) == len(s), 'y and s must be the same length!'
         self.y, self.s = y, s
 
+    def gen_roc_curve(self, n_points=500, ptail=1e-3):
+        # Generate sequence of scores within distribution of 0 and 1 class
+        s_lower = norm.ppf(ptail)
+        s_upper = norm.ppf(1-ptail) + self.mu
+        s_seq = np.linspace(s_lower, s_upper, n_points)
+        sens = self.thresh2sens(s_seq)
+        spec = self.thresh2spec(s_seq)
+        res = pd.DataFrame({'thresh':s_seq, 'sens':sens, 'spec':spec})
+        return res
+
     
-    def oracle_to_threshold(self):
+    def oracle_to_threshold(self, m):
+        """
+        m:              Performance measure
+        """
+        di_keys = list(di_performance)
+        assert m in di_keys, 'performance measure (m) must be one of: %s' % di_keys
         1
 
-    def threshold_to_oracle(self):
+    def threshold_to_oracle(self, m):
         1
 
     def gen_mixture(self, n, k=1, seed=None, keep=False):

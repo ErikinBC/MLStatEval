@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
-from scipy.stats import rankdata, norm, skewnorm
-from scipy.optimize import minimize_scalar, root_scalar
+from scipy.stats import rankdata, skewnorm
+from scipy.optimize import root_scalar
 from statsmodels.stats.proportion import proportion_confint as prop_CI
+# Internal modules
+from MLStatEval.utils.utils import cvec
 
 
 
@@ -16,19 +18,25 @@ def sn_ineq(mu, skew, scale, alpha, n_points):
     return prob
 
 # Find the mean of a skewnorm that achieves a certain AUROC
-def find_auroc(auc, skew, scale=1, alpha=0.001, n_points=100):
-    optim = minimize_scalar(fun=lambda mu: (auc - sn_ineq(mu, skew, scale, alpha, n_points))**2,method='brent')
-    assert optim.fun < 1e-10
-    mu_star = optim.x
+def find_auroc(auc, skew, scale=1, alpha=0.001, n_points=100, bound=100):
+    optim = root_scalar(f=lambda mu: (auc - sn_ineq(mu, skew, scale, alpha, n_points)), x0=0, x1=0.1, method='secant', bracket=(-bound,+bound))
+    assert optim.flag == 'converged', 'optimization did not converge!'
+    mu_star = optim.root
     return mu_star
+
 
 # Fast method of calculating AUROC
 def auc_rank(y, s):
-    n1 = sum(y)
+    y, s = cvec(y), cvec(s)
+    assert y.shape == s.shape, 'y and s need to have the same shape'
+    n1 = np.sum(y, axis=0)
     n0 = len(y) - n1
     den = n0 * n1
-    num = sum(rankdata(s)[y == 1]) - n1*(n1+1)/2
+    num = np.sum(rankdata(s, axis=0) * (y == 1), 0)
+    num -= n1*(n1+1)/2
     auc = num / den
+    if len(auc) == 1:
+        auc = auc[0]  # Return as float is original are arrays
     return auc
 
 # SKLearn wrapper to calculate empirical ROC

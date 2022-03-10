@@ -2,8 +2,9 @@
 
 from MLStatEval.trial import classification
 from MLStatEval.theory import gaussian_mixture
+from MLStatEval.utils.performance import lst_method
 
-m = 'sensitivity'  # performance measure
+m = 'specificity'  # performance measure
 
 # (i) Set up normal data-generating process
 p = 0.5
@@ -17,14 +18,25 @@ y, s = normal_dgp.gen_mixture(n, k, seed=1234)
 
 # (ii) Set trial target parameters
 alpha = 0.05  # type-I error
-gamma = 0.80  # target performance
+gamma = 0.50  # target performance
+n_bs = 1000
+seed = 1
 calibration = classification(alpha=alpha, gamma=gamma, m=m)
 
 # (iii) Learn threshold on data
-calibration.set_threshold(y=y_sim, s=s_sim, method='empirical')
+calibration.learn_threshold(y=y_sim, s=s_sim, method=lst_method, n_bs=n_bs, seed=seed)
 
 # (iv) Estimate power
 # calibration.estimate_power()
+
+
+# (v) Genereate test set of data and evaluate
+calibration.statistic(y, s, calibration.threshold_hat)
+
+
+
+
+
 
 
 print('~~~ End of run.py ~~~')

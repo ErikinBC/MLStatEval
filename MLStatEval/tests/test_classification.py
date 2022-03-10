@@ -17,5 +17,7 @@ class TestClassification(unittest.TestCase):
         for method in self.calib.lst_threshold_method:
             self.calib.set_threshold(y, s, method)
 
+    # CHECK THAT get_mixture RETURNS NP ARRAYS 
+
 if __name__ == '__main__':
     unittest.main()

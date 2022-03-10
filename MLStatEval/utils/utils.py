@@ -50,7 +50,7 @@ def get_cn_idx(df):
 
 
 # Convert operating threshold into column vector
-def clean_threshold(thresh):
+def clean_threshold(threshold):
     if isinstance(threshold, float) or isinstance(threshold, int):
         threshold = np.array([threshold])
     if not isinstance(threshold, np.ndarray):
@@ -66,7 +66,7 @@ def clean_y_s(y, s):
 
 # Clean up labels, scores, and thresholds
 def clean_y_s_threshold(y, s, threshold):
-    cn, idx = get_cn_idx(threshold)  # # If threshold is a DataFrame, extract information
+    cn, idx = get_cn_idx(threshold)  # If threshold is a DataFrame, extract information
     threshold = clean_threshold(threshold)  # Returns as column vector
     # Ensure operations broadcast
     y_shape = y.shape + (1,)

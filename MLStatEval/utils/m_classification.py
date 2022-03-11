@@ -1,6 +1,23 @@
-# Performance measure functions (m)
-# Each needs to have a oracle, stat, and learn_thresh method
-# http://users.stat.umn.edu/~helwig/notes/bootci-Notes.pdf
+"""
+Performance measure functions (m) for classification
+
+For more details on bootstrapping methods, see http://users.stat.umn.edu/~helwig/notes/bootci-Notes.pdf
+
+A performance measure should have the following structure:
+
+class m():
+    def __init__(self, gamma, alpha):
+        ...
+
+    def statistic(self, y, s, threshold, return_n=False):
+        ...
+
+    def learn_threshold(self, y, s, method, n_bs, seed):
+        ...
+
+    def estimate_power(self, spread, n_trial):
+        ...
+"""
 
 import numpy as np
 import pandas as pd
@@ -11,8 +28,15 @@ from scipy.stats import norm
 from MLStatEval.utils.utils import check01, get_cn_idx, clean_y_s, clean_y_s_threshold, clean_threshold
 from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
 
-# List of valid methods for .learn_threshold
-# point estimate, se(BS), Quantile, Bootstrap BCa
+
+"""
+List of valid methods for .learn_threshold
+
+point:                  point estimate
+basic:                  Use the se(bs) to add on z_alpha deviations
+percentile:             Use the alpha (or 1-alpha) percentile
+bca:                    Bias-corrected and accelerated bootstrap
+"""
 lst_method = ['point', 'basic', 'percentile', 'bca']
 
 # self = sens_or_spec(choice=m, method=lst_method, alpha=0.05, n_bs=1000, seed=1)
@@ -34,20 +58,35 @@ class sens_or_spec():
             self.j = 1
         assert check01(gamma), 'gamma needs to be between (0,1)'
         # Do we want to take the gamma or 1-gamma quantile of score distribution?
+        self.gamma = gamma
         self.m_gamma = gamma
         if self.choice == 'sensitivity':
             self.m_gamma = 1-gamma
         assert check01(alpha), 'alpha needs to be between (0,1)'
-        self.alpha = alpha            
+        self.alpha = alpha
 
-    def statistic(self, y, s, threshold):
+    def estimate_power(self, spread, n_trial):
         """
-        Calculates sensitivity or specific4ity
+        spread:             Null hypothesis spread (gamma - gamma_{H0})
+        n_trial:            Expected number of trial points (note this is class specific!)
+        """
+        assert (spread > 0) & (spread < self.gamma), 'spread must be between (0, gamma)'
+        gamma0 = self.gamma - spread
+        sig0 = np.sqrt( gamma0*(1-gamma0) / n_trial )
+        sig = np.sqrt( self.gamma*(1-self.gamma) / n_trial )
+        z_alpha = norm.ppf(1-self.alpha)
+        power = norm.cdf( (spread - sig0*z_alpha) / sig )
+        return power
+
+    def statistic(self, y, s, threshold, return_n=False):
+        """
+        Calculates sensitivity or specificity
         
         Inputs:
         y:                  Binary labels
         s:                  Scores
         threshold:          Operating threshold
+        return_n:           Should number of observations be returned?
         """
         # Clean up user input
         cn, idx, y, s, threshold = clean_y_s_threshold(y, s, threshold)
@@ -55,18 +94,21 @@ class sens_or_spec():
         yhat = np.where(s >= threshold, 1, 0)
         if self.choice == 'sensitivity':
             tps = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
-            ps = np.sum(y, axis=0)
-            score = tps / ps
+            den = np.sum(y, axis=0)  # Number of positives
+            score = tps / den
         else:  # specificity
             tns = np.sum((y == yhat) * (y == 0), axis=0)  # Intergrate out rows
-            ns = np.sum(1-y, axis=0)
-            score = tns / ns
+            den = np.sum(1-y, axis=0)  # Number of negatives
+            score = tns / den
         if score.shape[1] == 1:
             score = score.flatten()
         if isinstance(cn, list):
             # If threshold was a DataFrame, retirn one as well
             score = pd.DataFrame(score, columns = cn, index=idx)
-        return score
+        if return_n:
+            return score, den
+        else:
+            return score
 
     """
     Different CI approaches for threshold for gamma target

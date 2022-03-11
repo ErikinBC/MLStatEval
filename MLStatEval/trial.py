@@ -2,15 +2,31 @@
 Classes for carrying out inference for classificaiton or regression
 """
 
+# Libraries
 import numpy as np
+import pandas as pd
+from scipy.stats import norm
 
 # Internal methods
-from MLStatEval.utils.performance import lst_method
-from MLStatEval.utils.utils import check01, check_binary
-from MLStatEval.utils.performance import sensitivity, specificity, precision
+from MLStatEval.utils.utils import check01, check_binary, get_cn_idx
+from MLStatEval.utils.m_classification import sensitivity, specificity, precision
+from MLStatEval.utils.m_classification import lst_method as learn_threshold_methods
 
-di_performance = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
+# Store all classification performance functions in a dictionary
+di_m_classification = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
 
+# Define mandatory methods each classification method is required to have
+classification_methods = ['learn_threshold', 'statistic']
+
+"""
+Methods for calculating power
+
+one-sided:              Assume gamma is true (nothing stochastic)
+two-sided:              Use distribution of of thresholds to estimate power
+"""
+power_method = ['one-sided', 'two-sided']
+
+# self = classification(gamma=0.8, m='sensitivity', alpha=0.05)
 class classification():
     """
     Main class for supporting statistical calibration of ML models for classification task
@@ -18,6 +34,7 @@ class classification():
     gamma:      Target performance measure
     alpha:      Type-I error rate
     m:          Performance measure
+    m2:         Second performance measure (for stochastic power estimate)
     """
     def __init__(self, gamma, m, alpha=0.05):
         assert check01(gamma), 'gamma needs to be between (0,1)!'
@@ -25,21 +42,34 @@ class classification():
         self.gamma = gamma
         self.alpha = alpha
         # Call in the performance function
-        di_keys = list(di_performance)
+        di_keys = list(di_m_classification)
         assert m in di_keys, 'performance measure (m) must be one of: %s' % di_keys
-        self.m = di_performance[m](gamma=gamma, alpha=alpha)
-        attrs = ['learn_threshold', 'statistic']
-        for attr in attrs:
-            hasattr(self.m, attr), 'performance measure (m) needs to have attribute %s' % attr
-        # Valid methods for other methods
-        self.lst_threshold_method = lst_method
-        self.lst_power_method = ['one-sided', 'two-sided']
+        self.m = di_m_classification[m](gamma=gamma, alpha=alpha)
+        for method in classification_methods:
+            hasattr(self.m, method), 'performance measure (m) needs to have method %s' % method
 
-    def statistic(self, y, s, threshold):
-        m_hat = self.m.statistic(y=y, s=s, threshold=threshold)
-        return m_hat
 
-    def learn_threshold(self, y, s, method='percentile', n_bs=1000, seed=None):
+    def statistic(self, y, s, threshold, pval=False):
+        """
+        y:                      Binary labels
+        s:                      Scores
+        threshold:              Operating threshold (if 2d array, threshold.shape[0] == s.shape[1]) and columns correspond to some different some of method
+        pval:                   Should a p-value be return for a normal approximation of a binomial?
+        """
+        m_hat, n_hat = self.m.statistic(y=y, s=s, threshold=threshold, return_n=True)
+        if pval:
+            cn, idx = get_cn_idx(m_hat)
+            sig0 = np.sqrt( (self.gamma * (1-self.gamma)) / n_hat )
+            z = (m_hat - self.gamma) / sig0
+            pval = norm.cdf(-z)
+            if isinstance(cn, list):
+                pval = pd.DataFrame(pval, columns = cn, index=idx)
+            return m_hat, pval
+        else:
+            return m_hat
+
+
+    def learn_threshold(self, y, s, method='percentile', n_bs=1000, seed=None, inherit=True):
         """
         Learn threshold to optimize performance measure
         
@@ -49,21 +79,36 @@ class classification():
         method:                 A valid inference method (see lst_method)
         n_bs:                   # of bootstrap iterations
         seed:                   Seeding results
+        inherit:                Whether y/s should be stored in class
 
         Outputs:
         self.threshold_hat:     Data-derived threshold with method for each column (k)
         """
+        if isinstance(method, str):
+            method = [method]
+        assert all([meth in learn_threshold_methods for meth in method]), 'Ensure that method is one of: %s' % learn_threshold_methods
         self.threshold_method = method
         assert check_binary(y), 'y must be array/matrix of only {0,1}!'
         assert len(y) == len(s), 'y and s must be the same length!'
         self.threshold_hat = self.m.learn_threshold(y=y, s=s, method=method, n_bs=n_bs, seed=seed)
-        
+        if inherit:
+            self.y, self.s = y, s        
 
-    def calculate_power(self, method='one-sided'):
-        assert hasattr(self, 'threshold_method'), 'set_threshold method needs to be called before calculated_power'
-        assert method in self.lst_power_method, 'power method must be one of %s' % self.lst_power_method
+    # method='one-sided';spread=0.1;n_trial=100;n_bs=1000
+    def calculate_power(self, spread, n_trial, method='one-sided', n_bs=1000):
+        assert hasattr(self, 'threshold_method'), 'set_threshold with inherit=True needs to be called before calculated_power'
+        assert method in power_method, 'power method must be one of %s' % power_method
+        if method == 'one-sided':
+            self.power_hat = self.m.estimate_power(spread=spread, n_trial=n_trial)
+        else:
+            print('two-sided')
 
 
+
+
+
+# class two_sided_power():
+#     1
 
 
 # class regression():

@@ -5,7 +5,7 @@ from scipy.stats import norm
 
 # Internal methods
 from MLStatEval.utils.utils import check_binary, check01
-from MLStatEval.utils.performance import sensitivity, specificity, precision
+from MLStatEval.utils.m_classification import sensitivity, specificity, precision
 
 di_performance = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
 
@@ -71,6 +71,9 @@ class gaussian_mixture():
         1
 
     def threshold_to_oracle(self, m):
+        1
+
+    def threshold_to_pwer(self, m):
         1
 
     def gen_mixture(self, n, k=1, seed=None, keep=False):

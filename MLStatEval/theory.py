@@ -100,6 +100,7 @@ class gaussian_mixture():
         thresh_sens = self.mu1 + self.sd1*norm.ppf(1-gamma)
         thresh_spec = self.mu0 + self.sd0*norm.ppf(gamma)
         # thresh_spec = NEED TO IMPLEMENT FUNCTION HERE
+        # ID S0 > S1 OR S1 > S0, SEARCH FOR EQUALITY CONDITION OF MILLS RATIO TO FIND TURNING POINT
 
 
 

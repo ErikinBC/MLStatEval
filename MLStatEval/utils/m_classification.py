@@ -102,10 +102,15 @@ class sens_or_spec():
             score = tns / den
         if score.shape[1] == 1:
             score = score.flatten()
+            den = den.flatten()
         if isinstance(cn, list):
             # If threshold was a DataFrame, retirn one as well
             score = pd.DataFrame(score, columns = cn, index=idx)
-        if return_n:
+        # Return as a float when relevant
+        if sum(score.shape) == 1:
+            score = np.array(score)[0]
+            den = np.array(den)[0]
+        if return_n:                
             return score, den
         else:
             return score
@@ -184,6 +189,9 @@ class sens_or_spec():
             di_threshold['bca'] = threshold_bca
         # Return different CIs
         res_ci = pd.DataFrame.from_dict(di_threshold)
+        # If it's a 1x1 array or dataframe, return as a float
+        if max(res_ci.shape) == 1:
+            res_ci = np.array(res_ci).flatten()[0]
         return res_ci
 
 

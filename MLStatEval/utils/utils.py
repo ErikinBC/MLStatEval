@@ -69,6 +69,7 @@ def clean_y_s_threshold(y, s, threshold):
     cn, idx = get_cn_idx(threshold)  # If threshold is a DataFrame, extract information
     threshold = clean_threshold(threshold)  # Returns as column vector
     # Ensure operations broadcast
+    y, s = cvec(y), cvec(s)
     y_shape = y.shape + (1,)
     t_shape = (1,) + threshold.shape
     y = y.reshape(y_shape)

@@ -1,14 +1,17 @@
 # Class to support generation of Gaussian mixture
+from tabnanny import check
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
 # Internal methods
-from MLStatEval.utils.utils import check_binary, check01
+from MLStatEval.utils.utils import check_binary, check01, clean_threshold, get_cn_idx
 from MLStatEval.utils.m_classification import sensitivity, specificity, precision
 
 di_performance = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
 
+# self = gaussian_mixture()
+# self.set_params(p=0.5,mu1=2,mu0=1,sd1=1,sd0=1,empirical=False)
 class gaussian_mixture():
     def __init__(self) -> None:
         pass
@@ -52,7 +55,12 @@ class gaussian_mixture():
         self.y, self.s = y, s
 
     def gen_roc_curve(self, n_points=500, ptail=1e-3):
-        # Generate sequence of scores within distribution of 0 and 1 class
+        """
+        Generate sequence of scores within distribution of 0 and 1 class
+
+        n_points:           Number of points to evaluate
+        ptail:              What percentile in the tail to start/stop the sequence
+        """
         s_lower = norm.ppf(ptail)
         s_upper = norm.ppf(1-ptail) + self.mu
         s_seq = np.linspace(s_lower, s_upper, n_points)
@@ -61,20 +69,39 @@ class gaussian_mixture():
         res = pd.DataFrame({'thresh':s_seq, 'sens':sens, 'spec':spec})
         return res
 
+    def set_threshold(self, threshold):
+        """
+        Convert the threshold into the oracle performance values
+
+        Input:
+        threshold:          An array/DataFrame of threshold values
+
+        Output:
+        self.oracle_m:      Dictionary with different performance metric values
+        """
+        cn, idx = get_cn_idx(threshold)
+        self.threshold = threshold
+        # Calculate the oracle performance measures
+        oracle_sens = norm.cdf( (self.mu1 - threshold) / self.sd1 )
+        oracle_spec = norm.cdf( (threshold - self.mu0) / self.sd0 )
+        oracle_prec = self.p*oracle_sens / (self.p*oracle_sens + (1-self.p)*(1-oracle_spec))
+        self.oracle_m = {'sensitivity':oracle_sens, 'specificity':oracle_spec, 'precision':oracle_prec}
+        if isinstance(cn, list):
+            self.oracle_m = {k:pd.DataFrame(v,columns=cn,index=idx) for k,v in self.oracle_m.items()}
     
-    def oracle_to_threshold(self, m):
+    def set_gamma(self, gamma, alpha):
         """
-        m:              Performance measure
+        Find the oracle thresholds by setting gamma
+
+        gamma:          Performance target
         """
-        di_keys = list(di_performance)
-        assert m in di_keys, 'performance measure (m) must be one of: %s' % di_keys
-        1
+        assert check01(gamma), 'gamma needs to be between (0,1)'
+        assert check01(alpha), 'alpha needs to be between (0,1)'
+        thresh_sens = self.mu1 + self.sd1*norm.ppf(1-gamma)
+        thresh_spec = self.mu0 + self.sd0*norm.ppf(gamma)
+        # thresh_spec = NEED TO IMPLEMENT FUNCTION HERE
 
-    def threshold_to_oracle(self, m):
-        1
 
-    def threshold_to_pwer(self, m):
-        1
 
     def gen_mixture(self, n, k=1, seed=None, keep=False):
         """

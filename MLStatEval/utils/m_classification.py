@@ -78,7 +78,7 @@ class sens_or_spec():
         power = norm.cdf( (spread - sig0*z_alpha) / sig )
         return power
 
-    def statistic(self, y, s, threshold, return_n=False):
+    def statistic(self, y, s, threshold, return_n):
         """
         Calculates sensitivity or specificity
         

@@ -53,8 +53,18 @@ def emp_roc_curve(y, s):
     return res
 
 # Add on CIs to a dataframe
-def get_CI(df, cn_n, den, method='beta', alpha=0.05):
-    tmp = pd.concat(prop_CI(df[cn_n], den, method=method),axis=1)
+def get_CI(df, cn_num, cn_den, method='beta', alpha=0.05):
+    """
+    Add on lb/ub confidence interval columns
+
+    df:             Some pd.DataFrame
+    cn_num:         Number of successes
+    cn_den:         Number of chances
+    method:         Binomial confidence method
+    alpha:          Type-I error rate
+    """
+    assert isinstance(df, pd.DataFrame), 'df needs to be a DataFrame'
+    tmp = pd.concat(prop_CI(df[cn_num], df[cn_den], alpha=alpha, method=method),axis=1)
     tmp.columns = ['lb', 'ub']
     df = pd.concat(objs=[df, tmp], axis=1)
     return df

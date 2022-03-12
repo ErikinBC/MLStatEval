@@ -25,9 +25,8 @@ import bottleneck as bn
 from scipy.stats import norm
 
 # Internal packages
-from MLStatEval.utils.utils import check01, get_cn_idx, clean_y_s, clean_y_s_threshold, clean_threshold
 from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
-
+from MLStatEval.utils.utils import check01, get_cn_idx, clean_y_s, clean_y_s_threshold, clean_threshold, to_array, array_to_float
 
 """
 List of valid methods for .learn_threshold
@@ -70,12 +69,15 @@ class sens_or_spec():
         spread:             Null hypothesis spread (gamma - gamma_{H0})
         n_trial:            Expected number of trial points (note this is class specific!)
         """
-        assert (spread > 0) & (spread < self.gamma), 'spread must be between (0, gamma)'
+        # Allow for vectorization
+        spread, n_trial = to_array(spread), to_array(n_trial)
+        assert np.all(spread > 0) & np.all(spread < self.gamma), 'spread must be between (0, gamma)'
         gamma0 = self.gamma - spread
         sig0 = np.sqrt( gamma0*(1-gamma0) / n_trial )
         sig = np.sqrt( self.gamma*(1-self.gamma) / n_trial )
         z_alpha = norm.ppf(1-self.alpha)
         power = norm.cdf( (spread - sig0*z_alpha) / sig )
+        power = array_to_float(power)
         return power
 
     def statistic(self, y, s, threshold, return_n):
@@ -107,9 +109,8 @@ class sens_or_spec():
             # If threshold was a DataFrame, retirn one as well
             score = pd.DataFrame(score, columns = cn, index=idx)
         # Return as a float when relevant
-        if sum(score.shape) == 1:
-            score = np.array(score)[0]
-            den = np.array(den)[0]
+        score = array_to_float(score)
+        den = array_to_float(den)
         if return_n:                
             return score, den
         else:
@@ -190,8 +191,7 @@ class sens_or_spec():
         # Return different CIs
         res_ci = pd.DataFrame.from_dict(di_threshold)
         # If it's a 1x1 array or dataframe, return as a float
-        if max(res_ci.shape) == 1:
-            res_ci = np.array(res_ci).flatten()[0]
+        res_ci = array_to_float(res_ci)
         return res_ci
 
 
@@ -229,21 +229,21 @@ class precision():
         thresh:     Operating threshold
         """
         cn, idx = get_cn_idx(thresh)
-        thresh = clean_threshold(thresh)
-        # (i) Ensure operations broadcast
-        y_shape = y.shape + (1,)
-        t_shape = (1,) + thresh.shape
-        y = y.reshape(y_shape)
-        s = s.reshape(y_shape)
-        thresh = thresh.reshape(t_shape)
-        assert len(s.shape) == len(thresh.shape)
-        # (ii) Calculate metric
-        yhat = np.where(s >= thresh, 1, 0)
-        tp = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
-        p = np.sum(yhat, axis=0)
-        score = tp / p
-        if score.shape[1] == 1:
-            score = score.flatten()
-        if isinstance(cn, list):
-            score = pd.DataFrame(score, columns = cn, index=idx)
-        return score
+        # thresh = clean_threshold(thresh)
+        # # (i) Ensure operations broadcast
+        # y_shape = y.shape + (1,)
+        # t_shape = (1,) + thresh.shape
+        # y = y.reshape(y_shape)
+        # s = s.reshape(y_shape)
+        # thresh = thresh.reshape(t_shape)
+        # assert len(s.shape) == len(thresh.shape)
+        # # (ii) Calculate metric
+        # yhat = np.where(s >= thresh, 1, 0)
+        # tp = np.sum((y == yhat) * (y == 1), axis=0)  # Intergrate out rows
+        # p = np.sum(yhat, axis=0)
+        # score = tp / p
+        # if score.shape[1] == 1:
+        #     score = score.flatten()
+        # if isinstance(cn, list):
+        #     score = pd.DataFrame(score, columns = cn, index=idx)
+        # return score

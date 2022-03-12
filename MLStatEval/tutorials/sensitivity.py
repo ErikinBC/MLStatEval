@@ -54,18 +54,21 @@ calibration.learn_threshold(y=y_test,s=s_test,method='percentile',n_bs=n_bs,seed
 print('Threshold chosen: %0.3f' % calibration.threshold_hat)
 
 # Calculate the empirical sensitivity
-
-
+m_test = calibration.statistic(y=y_test, s=s_test, threshold=calibration.threshold_hat)
+print('Empirical sensitivity on test set %0.1f%% (%0.1f%% target)' % (100*m_test, 100*gamma))
 
 # Estimate power
-spread = 0.02
+spread = 0.02  # null hypothesis spread compared to gamma
 p_train = y_train.mean()
-n_trial_hat = int(p_train * n_trial)
+n_trial_hat = int(p_train * n_trial)  # Estimate the number of positive samples in the trial data
 calibration.calculate_power(spread=spread, n_trial=n_trial_hat)
 print('Power estimate: %0.1f%%' % (100*calibration.power_hat))
 
 # Run trial
 s_trial = mdl.predict_proba(X_trial)[:,1]
-# NEED TO DEBUG HERE!
-calibration.statistic(y=y_trial, s=s_trial, threshold=calibration.threshold_hat, pval=True)
+m_trial, pval_trial = calibration.statistic(y=y_trial, s=s_trial, threshold=calibration.threshold_hat, pval=True)
+reject_null = (pval_trial < alpha)
+print('Trial sensitivity: %0.1f%% (%0.1f%% target)\nP-value: %0.4f (reject null=%s)' % (100*m_trial, 100*gamma, pval_trial, reject_null))
 
+
+print('~~~ End of example.py ~~~')

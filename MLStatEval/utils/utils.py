@@ -40,6 +40,22 @@ def check_binary(x):
     check = all([z in [0,1] for z in ux])
     return check
 
+# Convert input to a numpy array
+def to_array(x):
+    if not isinstance(x, np.ndarray):
+        if isinstance(x, float) or isinstance(x, int):
+            x = np.array([x])
+        else:
+            x = np.array(x)
+    return x
+
+# return a (1,1) or (1,) array/dataframe as a float
+def array_to_float(x):
+    if hasattr(x, 'shape'):
+        if max(x.shape) == 1:
+            x = to_array(x).flatten()[0]
+    return x
+
 # Check if df is a DataFrame and extract columns and indices
 def get_cn_idx(df):
     cn, idx = None, None

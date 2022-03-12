@@ -5,8 +5,9 @@ import pandas as pd
 from scipy.stats import norm
 
 # Internal methods
-from MLStatEval.utils.utils import check_binary, check01, clean_threshold, get_cn_idx
+from MLStatEval.utils.utils import check_binary, check01, get_cn_idx
 from MLStatEval.utils.m_classification import sensitivity, specificity, precision
+from MLStatEval.utils.theory import oracle_auroc, threshold_to_sensitivity, sensitivity_to_threshold, specificity_to_threshold, threshold_to_specificity, threshold_to_precision, precision_to_threshold
 
 di_performance = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
 
@@ -39,8 +40,8 @@ class gaussian_mixture():
             self.p = p
             self.mu1, self.sd1 = mu1, sd1
             self.mu0, self.sd0 = mu0, sd0
-        # Calculate the ground-truth AUROC
-        self.auroc = norm.cdf((self.mu1 - self.mu0) / np.sqrt(self.sd1**2 + self.sd0**2))
+        # Oracle AUROC
+        self.auroc = oracle_auroc(self.mu1, self.mu0, self.sd1, self.sd0)
 
 
     def set_ys(self, y, s):
@@ -64,8 +65,8 @@ class gaussian_mixture():
         s_lower = norm.ppf(ptail)
         s_upper = norm.ppf(1-ptail) + self.mu
         s_seq = np.linspace(s_lower, s_upper, n_points)
-        sens = self.thresh2sens(s_seq)
-        spec = self.thresh2spec(s_seq)
+        sens = threshold_to_sensitivity(s_seq)
+        spec = threshold_to_specificity(s_seq)
         res = pd.DataFrame({'thresh':s_seq, 'sens':sens, 'spec':spec})
         return res
 
@@ -82,25 +83,25 @@ class gaussian_mixture():
         cn, idx = get_cn_idx(threshold)
         self.threshold = threshold
         # Calculate the oracle performance measures
-        oracle_sens = norm.cdf( (self.mu1 - threshold) / self.sd1 )
-        oracle_spec = norm.cdf( (threshold - self.mu0) / self.sd0 )
-        oracle_prec = self.p*oracle_sens / (self.p*oracle_sens + (1-self.p)*(1-oracle_spec))
+        oracle_sens = threshold_to_sensitivity(threshold, self.mu1, self.sd1)
+        oracle_spec = threshold_to_specificity(threshold, self.mu0, self.sd0)
+        oracle_prec = threshold_to_precision(threshold, self.mu1, self.mu0, self.sd1, self.sd0, self.p)
         self.oracle_m = {'sensitivity':oracle_sens, 'specificity':oracle_spec, 'precision':oracle_prec}
         if isinstance(cn, list):
             self.oracle_m = {k:pd.DataFrame(v,columns=cn,index=idx) for k,v in self.oracle_m.items()}
     
-    def set_gamma(self, gamma, alpha):
+
+    def set_gamma(self, gamma):  #, alpha
         """
         Find the oracle thresholds by setting gamma
 
         gamma:          Performance target
         """
         assert check01(gamma), 'gamma needs to be between (0,1)'
-        assert check01(alpha), 'alpha needs to be between (0,1)'
-        thresh_sens = self.mu1 + self.sd1*norm.ppf(1-gamma)
-        thresh_spec = self.mu0 + self.sd0*norm.ppf(gamma)
-        # thresh_spec = NEED TO IMPLEMENT FUNCTION HERE
-        # ID S0 > S1 OR S1 > S0, SEARCH FOR EQUALITY CONDITION OF MILLS RATIO TO FIND TURNING POINT
+        # assert check01(alpha), 'alpha needs to be between (0,1)'        
+        thresh_sens = sensitivity_to_threshold(gamma, self.mu1, self.sd1)
+        thresh_spec = specificity_to_threshold(gamma, self.mu0, self.sd0)
+        thresh_prec = precision_to_threshold(gamma, self.mu1, self.mu0, self.sd1, self.sd0, self.p)
 
 
 

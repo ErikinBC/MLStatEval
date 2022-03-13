@@ -99,6 +99,7 @@ def precision_threshold_range(mu1, mu0, sd1, sd0, p):
         # Monotonically increasing from p to 1
         # (-infty, t*):(p, p*), (t*, infty):(p*, 1)
         prec_min, prec_max = p, 1
+        thresh_local = None
     else:
         # Find the point where monotonicity changes
         lb, ub = root_finding_range(mu1, mu0, sd1, sd0)
@@ -114,19 +115,13 @@ def precision_threshold_range(mu1, mu0, sd1, sd0, p):
         else:   # sd1 > sd0
             # Monotonically decreasing from p to p_min, then monotonically increasing from p_min to 1
             # (-infty, t_low):(p, p_low), (t_low,t*):(p_low, p*), (t*,infty):(p*,1)
+            assert prec_local < p, 'huh? prec_min should be less than p!'
             prec_min = prec_local
             prec_max = 1
-            assert prec_local < p, 'huh? prec_min should be less than p!'
-    return prec_min, prec_max
+    return prec_min, prec_max, thresh_local
 
 
-# mu1, mu0 = 1, 0
-# sd1, sd0 = 1, 3
-# p = 0.5
-# n=4; target=0.6; xtol=1e-5
-
-
-def precision_to_threshold(target, mu1, mu0, sd1, sd0, p, w=0.25):
+def precision_to_threshold(target, mu1, mu0, sd1, sd0, p, w=0.25, xtol=1e-5):
     """
     Use root finding to map a target precision to an oracle threshold
     Depending on the relative variances, not all solutions exist
@@ -138,8 +133,9 @@ def precision_to_threshold(target, mu1, mu0, sd1, sd0, p, w=0.25):
     p:                  Class balance P(y == 1)
     w:                  How to weight x0/x1 relative to (lb, ub)
     """
+    assert (w > 0) & (w < 0.5), 'If weight is specificied need to be between (0,0.5)'
     # Get the precision ranges
-    prec_min, prec_max = precision_threshold_range(mu1, mu0, sd1, sd0, p)
+    prec_min, prec_max, thresh_change = precision_threshold_range(mu1, mu0, sd1, sd0, p)
     assert (target >= prec_min) & (target <= prec_max), 'error! precision target must be between (%0.3f, %0.3f)' % (prec_min, prec_max)
     # Threshold search will depend on variance conditions
     var_eq = (sd1 == sd0)
@@ -150,22 +146,23 @@ def precision_to_threshold(target, mu1, mu0, sd1, sd0, p, w=0.25):
     else:
         if sd0 > sd1:
             if (target >= p) & (target <= prec_max):
-                # If the target is between (p, prec_max), then we want to pick a small threshold
-                ub = thresh_max
-                x0 = 1
-                0.75*lb+0.25*thresh_max
+                # If target is between [p, prec_max], pick a smaller thresold
+                ub = thresh_change
             else:
                 # If the target is less than p, pick a larger threshold
-                lb = thresh_max
-                x0 = 2
+                lb = thresh_change
         else:  # sd1 > sd0
-            x0, x1 = 1, 1
-
-    # prec_hat = threshold_to_precision(threshold_target, mu1, mu0, sd1, sd0, p)
-    # assert np.abs(prec_hat - target) < xtol, 'Tolereance not found!'
-    # print(prec_hat);print(threshold_target)
-    # return threshold_target
+            if target > p:
+                # If target is between (p, 1], pick a larget threshold
+                lb = thresh_change
+            else:
+                # If starget is between [prec_min, p], pick a smaller threshold
+                ub = thresh_change
+        # Adjust trial points to something between lb/ub
+        x0 = (1-w)*lb + w*ub
+        x1 = w*lb + (1-w)*ub
+    thresh_hat = root_wrapper(f=err_precision_target, args=(target, mu1, mu0, sd1, sd0, p), x0=x0, x1=x1, lb=lb, ub=ub, method='brentq')
+    prec_hat = threshold_to_precision(thresh_hat, mu1, mu0, sd1, sd0, p)
+    assert np.abs(prec_hat - target) < xtol, 'Tolereance not found!'
+    return thresh_hat
     
-
-
-

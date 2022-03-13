@@ -57,7 +57,7 @@ class gaussian_mixture():
 
     def gen_roc_curve(self, n_points=500, ptail=1e-3):
         """
-        Generate sequence of scores within distribution of 0 and 1 class
+        Generate sequence a sensitivity/specificity trade-off points for a curve
 
         n_points:           Number of points to evaluate
         ptail:              What percentile in the tail to start/stop the sequence
@@ -69,6 +69,28 @@ class gaussian_mixture():
         spec = threshold_to_specificity(s_seq)
         res = pd.DataFrame({'thresh':s_seq, 'sens':sens, 'spec':spec})
         return res
+
+
+    def gen_pr_curve(self, n_points=100, ptail=0.001):
+        """
+        Generate a sequence of precison/recall trade-off points for a curve
+
+        n_points:           Number of points to evaluate
+        ptail:              What percentile in the tail to start/stop the sequence
+        """
+        z_alpha = norm.ppf(1-ptail)
+        # (i) Plotting ranges
+        plusminus = np.array([-1, 1])*z_alpha
+        b0 = self.mu1 + plusminus*self.sd0
+        b1 = self.mu0 + plusminus*self.sd1
+        lb = min(min(b0),min(b1))
+        ub = max(max(b0),max(b1))
+        thresh_seq = np.linspace(lb, ub, n_points)
+        ppv = threshold_to_precision(thresh_seq, self.mu1, self.mu0, self.sd1, self.sd0, self.p)
+        recall = threshold_to_sensitivity(thresh_seq, self.mu1, self.sd1)
+        res = pd.DataFrame({'thresh':thresh_seq, 'ppv':ppv, 'recall':recall})
+        return res
+
 
     def set_threshold(self, threshold):
         """

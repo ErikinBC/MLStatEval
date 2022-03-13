@@ -111,6 +111,17 @@ def grid_save(fn, fold, gg):
         os.remove(path)
     gg.savefig(path)
 
+# Convert float to integer columns if possible
+def df_float2int(df):
+    assert isinstance(df, pd.DataFrame), 'df needs to be a DataFrame'
+    cn_float = df.columns[(df.dtypes == float).values]
+    if len(cn_float) > 0:
+        idx_int = (df[cn_float] == df[cn_float].fillna(np.pi).astype(int)).all(0)
+        cn_int = list(idx_int[idx_int == True].index)
+        if len(cn_int) > 0:
+            df[cn_int] = df[cn_int].astype(int)
+    
+
 # Interpolate values for some dataframe
 def interp_df(df, cn_y, cn_x, target_y, *groups):
     # df=thresh_match; cn_x='val'; cn_y='thresh'; target_y=1.06; groups=('sim',)

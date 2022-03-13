@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import plotnine as pn
 from funs_stats import get_CI
-from funs_prec import pr_curve
 from utils import gg_save
 from funs_threshold import tools_thresh
 
@@ -81,37 +80,6 @@ gg_quant = (pn.ggplot(tmp_res, pn.aes(x='thresh')) + pn.theme_bw() +
     pn.scale_x_continuous(limits=[-1.5, +2.5]))
 gg_save('gg_quant.png', dir_figures, gg_quant, width, height)
 
-
-##################################
-# ---- (2) PRECISION CURVES ---- #
-
-# https://arxiv.org/pdf/1810.08635.pdf
-# https://icml.cc/Conferences/2009/papers/309.pdf
-# https://arxiv.org/pdf/1206.4667.pdf
-
-
-mu1, mu0 = 1, 0
-p_seq = [0.1, 0.25, 0.5]
-s0_seq = [0.5, 1, 3]
-s1_seq = [0.5, 1, 3]
-cn_gg = ['p','s0']
-holder = []
-for p in p_seq:
-    for s0 in s0_seq:
-        for s1 in s1_seq:
-            tmp = pr_curve(mu1, p, mu0, s1, s0).assign(p=p, s0=s0, s1=s1)
-            holder.append(tmp)
-res_ppv = pd.concat(holder).reset_index(drop=True)
-res_ppv[cn_gg] = res_ppv[cn_gg].astype(str)
-
-width = len(s0_seq) * 3.5
-height = len(s1_seq) * 3.0
-gg_ppv = (pn.ggplot(res_ppv,pn.aes(x='thresh',y='ppv',color='p')) + 
-    pn.theme_bw() + pn.geom_line() + 
-    pn.labs(x='Operating threshold',y='Precition') + 
-    pn.scale_color_discrete(name='P(y=1)') + 
-    pn.facet_grid('s1~s0',labeller=pn.label_both,scales='free'))
-gg_save('gg_ppv.png', dir_figures, gg_ppv, width, height)
 
 ##################################
 # ---- (X) DIABETES DATASET ---- #

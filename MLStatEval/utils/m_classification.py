@@ -9,7 +9,7 @@ class m():
     def __init__(self, gamma, alpha):
         ...
 
-    def statistic(self, y, s, threshold, return_n=False):
+    def statistic(self, y, s, threshold, return_den=False):
         ...
 
     def learn_threshold(self, y, s, method, n_bs, seed):
@@ -26,7 +26,7 @@ from scipy.stats import norm
 
 # Internal packages
 from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool
-from MLStatEval.utils.utils import check01, get_cn_idx, clean_y_s, clean_y_s_threshold, clean_threshold, to_array, array_to_float
+from MLStatEval.utils.utils import check01, get_cn_idx, df_cn_idx_args, clean_y_s, clean_y_s_threshold, clean_threshold, to_array, array_to_float
 
 """
 List of valid methods for .learn_threshold
@@ -37,7 +37,7 @@ percentile:             Use the alpha (or 1-alpha) percentile
 bca:                    Bias-corrected and accelerated bootstrap
 umbrella:               Neyman-Pearson Umbrella
 """
-lst_method = ['point', 'basic', 'percentile', 'bca', 'umbrella']
+lst_method = ['point', 'basic', 'percentile', 'bca']  #, 'umbrella'
 
 # self = sens_or_spec(choice=m, method=lst_method, alpha=0.05, n_bs=1000, seed=1)
 class sens_or_spec():
@@ -70,6 +70,7 @@ class sens_or_spec():
         spread:             Null hypothesis spread (gamma - gamma_{H0})
         n_trial:            Expected number of trial points (note this is class specific!)
         """
+        cn, idx = df_cn_idx_args(spread, n_trial)
         # Allow for vectorization
         spread, n_trial = to_array(spread), to_array(n_trial)
         assert np.all(spread > 0) & np.all(spread < self.gamma), 'spread must be between (0, gamma)'
@@ -79,9 +80,11 @@ class sens_or_spec():
         z_alpha = norm.ppf(1-self.alpha)
         power = norm.cdf( (spread - sig0*z_alpha) / sig )
         power = array_to_float(power)
+        if isinstance(cn, list):
+            power = pd.DataFrame(power, columns = cn, index=idx)
         return power
 
-    def statistic(self, y, s, threshold, return_n):
+    def statistic(self, y, s, threshold, return_den=False):
         """
         Calculates sensitivity or specificity
         
@@ -89,7 +92,7 @@ class sens_or_spec():
         y:                  Binary labels
         s:                  Scores
         threshold:          Operating threshold
-        return_n:           Should number of observations be returned?
+        return_den:         Should the denominator of statistic be returned?
         """
         # Clean up user input
         cn, idx, y, s, threshold = clean_y_s_threshold(y, s, threshold)
@@ -103,16 +106,23 @@ class sens_or_spec():
             tns = np.sum((y == yhat) * (y == 0), axis=0)  # Intergrate out rows
             den = np.sum(1-y, axis=0)  # Number of negatives
             score = tns / den
-        if score.shape[1] == 1:
+        nc_score = score.shape[1]
+        nc_den = den.shape[1]
+        if nc_score == 1:
             score = score.flatten()
             den = den.flatten()
+        else:
+            if nc_score > nc_den == 1:
+                # Duplicates columns
+                den = np.tile(den, [1, nc_score])
         if isinstance(cn, list):
-            # If threshold was a DataFrame, retirn one as well
+            # If threshold was a DataFrame, return one as well
             score = pd.DataFrame(score, columns = cn, index=idx)
+            den = pd.DataFrame(den, columns = cn, index=idx)
         # Return as a float when relevant
         score = array_to_float(score)
         den = array_to_float(den)
-        if return_n:                
+        if return_den:                
             return score, den
         else:
             return score

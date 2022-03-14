@@ -51,6 +51,8 @@ def to_array(x):
 
 # return a (1,1) or (1,) array/dataframe as a float
 def array_to_float(x):
+    if isinstance(x, list):
+        x = np.array(x)
     if hasattr(x, 'shape'):
         if max(x.shape) == 1:
             x = to_array(x).flatten()[0]
@@ -62,6 +64,23 @@ def get_cn_idx(df):
     if isinstance(df, pd.DataFrame):
         cn = list(df.columns)
         idx = df.index
+    return cn, idx
+
+# Provide a list of arguments and return the cn_idx for one of them
+def df_cn_idx_args(*args):
+    holder_cn, holder_idx = [], []
+    for arg in args:
+        cn, idx = get_cn_idx(arg)
+        holder_cn.append(cn)
+        holder_idx.append(idx)
+    holder_cn = [cn for cn in holder_cn if cn is not None]
+    holder_idx = [idx for idx in holder_idx if idx is not None]
+    n_cn, n_idx = len(holder_cn), len(holder_idx)
+    assert (n_cn <= 1) & (n_idx <= 1), 'only up to one argument should be a DataFrame!'
+    if (n_cn == 1) | (n_idx == 1):
+        cn, idx = holder_cn[0], holder_idx[0]
+    else:
+        cn, idx = None, None
     return cn, idx
 
 

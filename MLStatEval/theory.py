@@ -1,12 +1,12 @@
 # Class to support generation of Gaussian mixture
-from tabnanny import check
+import sys
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
 # Internal methods
-from MLStatEval.utils.utils import check_binary, check01, get_cn_idx
 from MLStatEval.utils.m_classification import sensitivity, specificity, precision
+from MLStatEval.utils.utils import check_binary, check01, get_cn_idx, array_to_float, to_array
 from MLStatEval.utils.theory import oracle_auroc, threshold_to_sensitivity, sensitivity_to_threshold, specificity_to_threshold, threshold_to_specificity, threshold_to_precision, precision_to_threshold
 
 di_performance = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
@@ -120,12 +120,28 @@ class gaussian_mixture():
         gamma:          Performance target
         """
         assert check01(gamma), 'gamma needs to be between (0,1)'
-        # assert check01(alpha), 'alpha needs to be between (0,1)'        
-        thresh_sens = sensitivity_to_threshold(gamma, self.mu1, self.sd1)
-        thresh_spec = specificity_to_threshold(gamma, self.mu0, self.sd0)
-        thresh_prec = precision_to_threshold(gamma, self.mu1, self.mu0, self.sd1, self.sd0, self.p)
+        oracle_sens = sensitivity_to_threshold(gamma, self.mu1, self.sd1)
+        oracle_spec = specificity_to_threshold(gamma, self.mu0, self.sd0)
+        oracle_prec = precision_to_threshold(gamma, self.mu1, self.mu0, self.sd1, self.sd0, self.p)
+        di_threshold = {'sensitivity':oracle_sens, 'specificity':oracle_spec, 'precision':oracle_prec}
+        # Convert to float if relevant
+        self.oracle_threshold = {k:array_to_float(v) for k,v in di_threshold.items()}
 
 
+    def check_threshold_coverage(self, threshold, m):
+        """
+        Determine whether a given threshold is sufficiently conservative to meet a certain gamma level
+        """
+        assert hasattr(self, 'oracle_threshold'), 'run set_gamma() before calling check_threshold'
+        assert m in self.oracle_threshold, 'm needs to be one of: %s' % list(self.oracle_threshold)
+        oracle_threshold = self.oracle_threshold[m]
+        if m == 'sensitivity':
+            check = threshold <= oracle_threshold
+        elif (m == 'specificity') | (m == 'precision'):
+            check = threshold >= oracle_threshold
+        else:
+            sys.exit('How did we get here?!')
+        return check
 
     def gen_mixture(self, n, k=1, seed=None, keep=False):
         """

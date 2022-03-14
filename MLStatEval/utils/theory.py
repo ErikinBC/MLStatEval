@@ -136,7 +136,7 @@ def precision_to_threshold(target, mu1, mu0, sd1, sd0, p, w=0.25, xtol=1e-5):
     assert (w > 0) & (w < 0.5), 'If weight is specificied need to be between (0,0.5)'
     # Get the precision ranges
     prec_min, prec_max, thresh_change = precision_threshold_range(mu1, mu0, sd1, sd0, p)
-    assert (target >= prec_min) & (target <= prec_max), 'error! precision target must be between (%0.3f, %0.3f)' % (prec_min, prec_max)
+    assert (target > prec_min) & (target < prec_max), 'error! precision target must be between (%0.3f, %0.3f)' % (prec_min, prec_max)
     # Threshold search will depend on variance conditions
     var_eq = (sd1 == sd0)
     lb, ub = root_finding_range(mu1, mu0, sd1, sd0)

@@ -56,10 +56,10 @@ class classification():
         threshold:              Operating threshold (if 2d array, threshold.shape[0] == s.shape[1]) and columns correspond to some different some of method
         pval:                   Should a p-value be return for a normal approximation of a binomial?
         """
-        m_hat, n_hat = self.m.statistic(y=y, s=s, threshold=threshold, return_n=True)
+        m_hat, den_hat = self.m.statistic(y=y, s=s, threshold=threshold, return_den=True)
         if pval:
             cn, idx = get_cn_idx(m_hat)
-            sig0 = np.sqrt( (self.gamma * (1-self.gamma)) / n_hat )
+            sig0 = np.sqrt( (self.gamma * (1-self.gamma)) / den_hat )
             z = (m_hat - self.gamma) / sig0
             pval = norm.cdf(-z)
             if isinstance(cn, list):
@@ -94,14 +94,23 @@ class classification():
         if inherit:
             self.y, self.s = y, s        
 
-    # method='one-sided';spread=0.1;n_trial=100;n_bs=1000
-    def calculate_power(self, spread, n_trial, method='one-sided', n_bs=1000):
-        assert hasattr(self, 'threshold_method'), 'set_threshold with inherit=True needs to be called before calculated_power'
-        assert method in power_method, 'power method must be one of %s' % power_method
-        if method == 'one-sided':
-            self.power_hat = self.m.estimate_power(spread=spread, n_trial=n_trial)
-        else:
-            print('two-sided')
+    # method='one-sided'; # assert method in power_method, 'power method must be one of %s' % power_method
+    # spread=0.1;n_trial=100;n_bs=1000
+    def calculate_power(self, spread, n_trial, threshold=None):
+        """
+        Calculate expected power for a future trial. If y/s/threshold are supplied, then n_trial will be weighted by yhat to adjust for the sample size
+        """
+        attrs = ['threshold_method', 'y', 's']
+        for attr in attrs:
+            assert hasattr(self, attr), 'attribute %s not found\nlearn_threshold with inherit=True needs to be called before calculated_power' % attr
+        # If not threshold is given, n_trial will assume to be class-specific
+        n_trial_exp = n_trial
+        if threshold is not None:
+            n = len(self.y)
+            _, den_hat = self.m.statistic(y=self.y, s=self.s, threshold=threshold, return_den=True)
+            n_trial_exp = n_trial * den_hat / n
+        self.power_hat = self.m.estimate_power(spread=spread, n_trial=n_trial_exp)
+        
 
 
 

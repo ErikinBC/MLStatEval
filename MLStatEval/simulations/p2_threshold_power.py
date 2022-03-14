@@ -13,76 +13,100 @@ from MLStatEval.utils.stats import get_CI
 from MLStatEval.utils.m_classification import lst_method
 
 
-####################################
-# ----- (1) RUN EXPERIMENTS ------ #
+###############################
+# ----- (1) PARAMETERS ------ #
 
-# (i) Set up normal data-generating process
+# Set up normal data-generating process
 seed = 1
 p = 0.5
 mu1, mu0 = 1, 0
 sd1, sd0 = 1, 1
-n_test = 250
-k_exper = 1000
+n_test = 100 #250
+k_exper = 50 # 1000
+idx_exper = np.arange(k_exper)+1
 normal_dgp = gaussian_mixture()
 normal_dgp.set_params(p, mu1, mu0, sd1, sd0)
-y_test, s_test = normal_dgp.gen_mixture(n_test, k_exper, seed=1234)
+# Generate test and trial data
+y_test, s_test = normal_dgp.gen_mixture(n_test, k_exper, seed=seed)
+y_trial, s_trial = normal_dgp.gen_mixture(n_test, k_exper, seed=seed+1)
 
-# (ii) Set trial target parameters
+# Set trial target parameters
 alpha = 0.05  # type-I error (for either power or threshold)
-gamma = 0.50  # target performance
+gamma = 0.60  # target performance
 spread = 0.1  # Null hypothesis spread
 n_trial = 100  # Number of (class specific) trial samples
-n_bs = 1000  # Number of bootstrap iterations
+n_bs = 25 # 1000  # Number of bootstrap iterations
 
-# Loop over the difference perfomrance measures
-lst_m = ['sensitivity']  # , 'specificity'
+# Loop over the difference performance measures
+lst_m = ['sensitivity', 'specificity']
 
-di_n_trial = {'sensitivity':n_trial*p, 'specificity':n_trial*(1-p)}
+# Pre-calculate oracle values
+normal_dgp.set_gamma(gamma=gamma)
+# Check that it aligns
+for m, thresh in normal_dgp.oracle_threshold.items():
+    normal_dgp.set_threshold(threshold=thresh)
+    err_target = np.abs(gamma - normal_dgp.oracle_m[m])
+    assert err_target < 1e-5, 'set_threshold did not yield expected oracle m!'
 
-holder_raw, holder_agg = [], []
+
+###################################
+# ----- (2) RUN EXPERIMENT ------ #
+
+holder_thresh, holder_pval = [], []
 for m in lst_m:
     print('--- Running simulations for %s ---' % m)
     calibration = classification(alpha=alpha, gamma=gamma, m=m)
-    # (iii) Learn threshold on test set data
-    calibration.learn_threshold(y=y_test, s=s_test, method=lst_method, n_bs=n_bs, seed=seed)
-    # (iv) Estimate power
-    n_trial_m = di_n_trial[m]  # E(no. of labels)
-    calibration.calculate_power(spread=spread, n_trial=n_trial_m)
+    # (i) Learn threshold on test set data
+    calibration.learn_threshold(y=y_test, s=s_test, method=lst_method, n_bs=n_bs, seed=seed, inherit=True)
 
-    # (v) Genereate trial data and evaluate
-    y_trial, s_trial = normal_dgp.gen_mixture(n_test, k_exper, seed=seed+1)
+    # (ii) Add on oracle value to threshold
+    thresh_test = calibration.threshold_hat.assign(idx=idx_exper)
+    thresh_test = thresh_test.melt('idx',None,'method','threshold')
+    thresh_test = thresh_test.assign(coverage=lambda x: normal_dgp.check_threshold_coverage(x['threshold'], m))
+    thresh_test.insert(0, 'm', m)
+    holder_thresh.append(thresh_test)
 
-    # Performance measure and test-statistic
-    m_hat, pval = calibration.statistic(y=y_trial, s=s_trial, threshold=calibration.threshold_hat, pval=True)
-    # Calculate whether test statistic was met
-    m_hat = m_hat.melt(None,None,'method','val').assign(tt='stat')
-    m_hat = m_hat.assign(ineq=lambda x: x['val'] > gamma)
-    # Calculate whether null is rejected
-    pval = pval.melt(None,None,'method','val').assign(tt='pval')
-    pval = pval.assign(ineq=lambda x: x['val'] < alpha)
-    res_m = pd.concat(objs=[m_hat, pval], axis=0)
-    res_m.insert(0, 'm', m)
-    holder_raw.append(res_m)
-    # Get mean and number
-    res_m_agg = res_m.groupby(['m','method','tt'])['ineq'].sum().reset_index()
-    res_m_agg = res_m_agg.assign(n=k_exper).assign(rate=lambda x: x['ineq']/x['n'])
-    # Merge on the expected power/coverage
-    dat_oracle = pd.DataFrame({'tt':['stat', 'pval'], 'oracle':[1, calibration.power_hat]})
-    res_m_agg = res_m_agg.merge(dat_oracle)
-    holder_agg.append(res_m_agg)
-    del res_m, res_m_agg
+    # (iii) Estimate power
+    calibration.calculate_power(spread=spread, n_trial=n_trial, threshold=calibration.threshold_hat)
+    power_test = calibration.power_hat.assign(idx=idx_exper)
+    power_test = power_test.melt('idx',None,'method','power')
+
+    # (iv) Generate performance measure and test statistic on trial
+    m_trial, pval_trial = calibration.statistic(y=y_trial, s=s_trial, threshold=calibration.threshold_hat, pval=True)
+    # Merge p-value with power estimate
+    pval_trial = pval_trial.assign(idx=idx_exper)
+    pval_trial = pval_trial.melt('idx',None,'method','pval')
+    pval_trial = pval_trial.assign(reject=lambda x: x['pval'] < alpha)
+    pval_trial = pval_trial.merge(power_test)
+    pval_trial.insert(0, 'm', m)
+    holder_pval.append(pval_trial)
+    
+
+################################
+# ----- (2) MERGE & AGG ------ #
+
+# (i) Concatenate over m
+df_thresh = pd.concat(holder_thresh).reset_index(drop=True)
+df_pval = pd.concat(holder_pval).reset_index(drop=True)
+
+# (ii) Aggregate by [m, method] and generate CIs
+cn_gg = ['m', 'method']
+df_thresh_agg = df_thresh.groupby(cn_gg)['coverage'].mean().reset_index()
+df_thresh_agg = df_thresh_agg.assign(den=k_exper,num=lambda x: x['coverage']*k_exper)
+df_thresh_agg = get_CI(df_thresh_agg, cn_num='num', cn_den='den', alpha=alpha)
+df_thresh_agg.drop(columns=['num', 'den'], inplace=True)
+# Repeat for p-values
+df_pval_agg = df_pval.groupby(cn_gg)[['reject','power']].mean().reset_index()
+df_pval_agg = df_pval_agg.melt(cn_gg,None,'tt')
+df_pval_agg = df_pval_agg.assign(den=k_exper,num=lambda x: x['value']*k_exper)
+df_pval_agg = get_CI(df_pval_agg, cn_num='num', cn_den='den', alpha=alpha)
+df_pval_agg.drop(columns=['num', 'den'], inplace=True)
 
 
 #################################
-# ----- (2) PLOT RESULTS ------ #
+# ----- (3) PLOT RESULTS ------ #
 
-res_raw = pd.concat(holder_raw).reset_index(drop=True)
-res_agg = pd.concat(holder_agg).reset_index(drop=True)
-res_agg = get_CI(df=res_agg, cn_num='ineq', cn_den='n', alpha=alpha)
-
-
-
-# fmt_gamma = '%i%%' % (gamma*100)
+fmt_gamma = '%i%%' % (gamma*100)
 # # (ii) Coverage by method
 # df_res = df_res.assign(cover = lambda x: np.where(x['oracle'] >= gamma,'>','<'))
 # df_res = df_res.merge(enc_thresh.thresh_gamma)

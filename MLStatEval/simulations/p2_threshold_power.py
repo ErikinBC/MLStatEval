@@ -3,15 +3,26 @@ Script to compare how different methods do in terms of estimating a conservative
 """
 
 # External modules
+import os
+import pathlib
 import numpy as np
 import pandas as pd
+import plotnine as pn
 
 # Internal modules
 from MLStatEval.trial import classification
 from MLStatEval.theory import gaussian_mixture
 from MLStatEval.utils.stats import get_CI
+from MLStatEval.utils.utils import gg_save
 from MLStatEval.utils.m_classification import lst_method
 
+# Set up foldres
+dir_here = pathlib.Path(__file__).parent
+dir_figures = os.path.join(dir_here, 'figures')
+# dir_figures = os.path.join(os.getcwd(),'MLStatEval','simulations','figures')
+
+# Labels for methods
+di_method = {'point':'Point', 'basic':'Classical', 'percentile':'Percentile', 'bca':'BCa'}
 
 ###############################
 # ----- (1) PARAMETERS ------ #
@@ -22,7 +33,7 @@ p = 0.5
 mu1, mu0 = 1, 0
 sd1, sd0 = 1, 1
 n_test = 100 #250
-k_exper = 50 # 1000
+k_exper = 5000
 idx_exper = np.arange(k_exper)+1
 normal_dgp = gaussian_mixture()
 normal_dgp.set_params(p, mu1, mu0, sd1, sd0)
@@ -35,7 +46,7 @@ alpha = 0.05  # type-I error (for either power or threshold)
 gamma = 0.60  # target performance
 spread = 0.1  # Null hypothesis spread
 n_trial = 100  # Number of (class specific) trial samples
-n_bs = 25 # 1000  # Number of bootstrap iterations
+n_bs = 1000  # Number of bootstrap iterations
 
 # Loop over the difference performance measures
 lst_m = ['sensitivity', 'specificity']
@@ -47,6 +58,10 @@ for m, thresh in normal_dgp.oracle_threshold.items():
     normal_dgp.set_threshold(threshold=thresh)
     err_target = np.abs(gamma - normal_dgp.oracle_m[m])
     assert err_target < 1e-5, 'set_threshold did not yield expected oracle m!'
+
+# Oracle values will be used for plotting later
+vlines = pd.DataFrame.from_dict({k:[v] for k,v in normal_dgp.oracle_threshold.items()})
+vlines = vlines.melt(None,None,'m','oracle')
 
 
 ###################################
@@ -103,50 +118,60 @@ df_pval_agg = get_CI(df_pval_agg, cn_num='num', cn_den='den', alpha=alpha)
 df_pval_agg.drop(columns=['num', 'den'], inplace=True)
 
 
-#################################
-# ----- (3) PLOT RESULTS ------ #
+#####################################
+# ----- (3) THRESOLD & POWER ------ #
 
 fmt_gamma = '%i%%' % (gamma*100)
-# # (ii) Coverage by method
-# df_res = df_res.assign(cover = lambda x: np.where(x['oracle'] >= gamma,'>','<'))
-# df_res = df_res.merge(enc_thresh.thresh_gamma)
-# df_res['method'] = df_res['method'].map(di_method)
-# df_res['m'] = df_res['m'].map(di_msr)
 
-# # (iii) Make labels
-# cn_gg = ['m', 'method', 'cover', 'thresh_gamma']
-# df_text = df_res.groupby(cn_gg).size().reset_index().set_index(cn_gg).sort_index(ascending=False)
-# df_text.rename(columns={0:'n'}, inplace=True)
-# df_text = get_CI(df_text, 'n', nsim).assign(n=lambda x: x['n']/nsim)
-# df_text = (df_text*100).round(1).astype(str).reset_index()
-# # Make fancy text
-# df_text['lbl'] = df_text.apply(lambda x: '%s%s\n%s%% (%s, %s)' % (x['cover'], fmt_gamma, x['n'], x['lb'], x['ub']), 1)
-# df_text.insert(0, 'y', nsim/3.75)
-# df_text = df_text.assign(sign1=lambda x: np.where(x['m']=='Specificity',-1,+1))
-# df_text = df_text.assign(sign2=lambda x: np.where(x['cover']=='<',+1,-1))
-# df_text = df_text.assign(x=lambda x: x['thresh_gamma'] + 0.95*x['sign1']*x['sign2'])
-# # For vlines
-# df_thresh = df_text.groupby(['m','method','thresh_gamma']).size().reset_index().drop(columns=[0])
+# (i) Get threshold position by coverage ,'coverage'
+pos_txt = df_thresh.query('coverage==True').groupby(['m'])['threshold'].quantile([0.01,0.99])
+pos_txt = pos_txt.reset_index().rename(columns={'level_1':'moment'})
+pos_txt = pos_txt.merge(vlines).assign(err=lambda x: (x['threshold']-x['oracle']).abs())
+pos_txt = pos_txt.loc[pos_txt.groupby('m')['err'].idxmax()]
+pos_txt = pos_txt.reset_index(drop=True).drop(columns=['oracle','err','moment'])
+pos_txt.rename(columns={'threshold':'x'}, inplace=True)
+pos_txt.insert(0, 'y', k_exper / 3)
+pos_txt = pos_txt.merge(df_thresh_agg, 'right', 'm')
+pos_txt['lbl'] = pos_txt.apply(lambda x: '%0.1f%% (%0.1f-%0.1f%%)' % (100*x['coverage'], 100*x['lb'], 100*x['ub']), 1)
 
-# # Plot
-# n_method = df_res['method'].unique().shape[0]
-# n_msr = df_res['m'].unique().shape[0]
-# width = n_msr*4.0
-# height = n_method*3.25
-# tmp_res = df_res.assign(method=lambda x: pd.Categorical(x['method'],di_method.values()))
-# tmp_thresh = df_thresh.assign(method=lambda x: pd.Categorical(x['method'],di_method.values()))
-# tmp_text = df_text.assign(method=lambda x: pd.Categorical(x['method'],di_method.values()))
-# gg_quant = (pn.ggplot(tmp_res, pn.aes(x='thresh')) + pn.theme_bw() + 
-#     pn.labs(x='Empirically chosen threshold',y='Simulation frequency') + 
-#     pn.geom_histogram(color='grey',fill='grey',alpha=0.5,bins=30) + 
-#     pn.facet_grid('method~m',scales='free_x') + 
-#     pn.geom_vline(pn.aes(xintercept='thresh_gamma'), data=tmp_thresh, inherit_aes=False) + 
-#     pn.guides(color=False) + 
-#     pn.geom_text(pn.aes(x='x', y='y', label='lbl',color='cover'), size=9, data=tmp_text, inherit_aes=False) + 
-#     pn.scale_x_continuous(limits=[-1.5, +2.5]))
-# gg_save('gg_quant.png', dir_figures, gg_quant, width, height)
+# (ii) Plot
+n_method = df_thresh_agg['method'].unique().shape[0]
+n_msr = df_thresh_agg['m'].unique().shape[0]
+width = n_msr*4.0
+height = n_method*2.5
+
+# Order categories
+tmp_thresh = df_thresh.assign(method=lambda x: pd.Categorical(x['method'], list(di_method)))
+tmp_txt = pos_txt.assign(method=lambda x: pd.Categorical(x['method'], list(di_method)))
+
+# (i) Threshold and oracle
+gg_threshold_method = (pn.ggplot(tmp_thresh, pn.aes(x='threshold')) + pn.theme_bw() + 
+    pn.labs(x='Empirically chosen threshold',y='Simulation frequency') + 
+    pn.geom_histogram(color='grey',fill='grey',alpha=0.5,bins=30) + 
+    pn.facet_grid('method~m',scales='free_x', labeller=pn.labeller(method=di_method)) + 
+    pn.geom_vline(pn.aes(xintercept='oracle'), data=vlines, inherit_aes=False) + 
+    pn.guides(color=False) + 
+    pn.geom_text(pn.aes(x='x', y='y', label='lbl'), size=9, data=tmp_txt, inherit_aes=False) + 
+    pn.scale_y_continuous(limits=[-1, +k_exper*0.4]) + 
+    pn.scale_x_continuous(limits=[-1.5, +2.5]))
+gg_save('gg_threshold_method.png', dir_figures, gg_threshold_method, width, height)
+
+# (ii) Expected power and actual
+tmp_pval = df_pval_agg.assign(method=lambda x: pd.Categorical(x['method'],list(di_method)).map(di_method))
+tmp_pval['tt'] = tmp_pval['tt'].map({'reject':'Reject Null', 'power':'Expected power'})
+
+width = n_msr * 3
+height = 3
+posd = pn.position_dodge(0.5)
+gg_power_comp = (pn.ggplot(tmp_pval, pn.aes(x='tt',y='value',color='method')) + 
+    pn.theme_bw() + 
+    pn.scale_color_discrete(name='Method') + 
+    pn.facet_wrap('~m') + 
+    pn.labs(y='Empirical/expected frequency') + 
+    pn.theme(axis_title_x=pn.element_blank()) + 
+    pn.geom_linerange(pn.aes(ymin='lb',ymax='ub'), position=posd) + 
+    pn.geom_point(position=posd,size=2))
+gg_save('gg_power_comp.png', dir_figures, gg_power_comp, width, 4)
 
 
-
-
-print('~~~ End of run.py ~~~')
+print('~~~ p2_threshold_power.py ~~~')

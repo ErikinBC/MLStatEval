@@ -14,8 +14,8 @@ python -m MLStatEval.simulations.p1_gen_roc
 echo "(2) Evaluating threshold & power inferences"
 python -m MLStatEval.simulations.p2_threshold_power
 
-# echo "(3) "
-# python -m MLStatEval.simulations.p3_
+# echo "(3) Generating precision plots"
+python -m MLStatEval.simulations.p3_precision
 
 
 echo "~~~ End of pipeline.sh ~~~"

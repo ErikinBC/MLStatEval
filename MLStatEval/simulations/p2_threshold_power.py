@@ -12,6 +12,7 @@ from MLStatEval.theory import gaussian_mixture
 from MLStatEval.utils.stats import get_CI
 from MLStatEval.utils.m_classification import lst_method
 
+
 ####################################
 # ----- (1) RUN EXPERIMENTS ------ #
 

@@ -35,8 +35,9 @@ point:                  point estimate
 basic:                  Use the se(bs) to add on z_alpha deviations
 percentile:             Use the alpha (or 1-alpha) percentile
 bca:                    Bias-corrected and accelerated bootstrap
+umbrella:               Neyman-Pearson Umbrella
 """
-lst_method = ['point', 'basic', 'percentile', 'bca']
+lst_method = ['point', 'basic', 'percentile', 'bca', 'umbrella']
 
 # self = sens_or_spec(choice=m, method=lst_method, alpha=0.05, n_bs=1000, seed=1)
 class sens_or_spec():
@@ -129,7 +130,6 @@ class sens_or_spec():
 
     """
     def learn_threshold(self, y, s, method='percentile', n_bs=1000, seed=None):
-        
         if isinstance(method, str):
             assert method in lst_method, 'method for learn_threshold must be one of: %s' % lst_method
             self.method = [method]

@@ -59,7 +59,7 @@ width = len(sd0_seq) * 3.5
 height = len(sd1_seq) * 2.5
 gg_ppv = (pn.ggplot(res_ppv,pn.aes(x='thresh',y='ppv',color='p')) + 
     pn.theme_bw() + pn.geom_line() + 
-    pn.labs(x='Operating threshold',y='Precition') + 
+    pn.labs(x='Operating threshold',y='Precision') + 
     pn.scale_color_discrete(name='P(y=1)') + 
     pn.theme(panel_spacing_x=0.25, panel_spacing_y=0.1) + 
     pn.geom_point(pn.aes(x='thresh',y='y'),data=res_points) + 

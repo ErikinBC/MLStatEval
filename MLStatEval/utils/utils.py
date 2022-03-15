@@ -7,6 +7,14 @@ def makeifnot(path):
     if not os.path.exists(path):
         os.makedirs(path)
 
+# Flatten an array if only a single dimension is not one
+def try_flatten(x):
+    xs = np.array(x.shape)
+    ns1 = np.sum(xs > 1)
+    if ns1 == 1:
+        x = x.flatten()
+    return x
+
 # Row vector
 def rvec(x):
     if isinstance(x, list):
@@ -24,7 +32,7 @@ def cvec(x):
             z = z.T
         return z
     else:
-        return z
+        return x
 
 # Check that float is between 0-1
 def check01(x, inclusive=False):
@@ -101,10 +109,16 @@ def clean_y_s(y, s):
 
 # Clean up labels, scores, and thresholds
 def clean_y_s_threshold(y, s, threshold):
+    # Put into column vectors
+    y, s = cvec(y), cvec(s)
+    # If thresold is a float, and s is a matrix, create an identical threshold for each column
+    nc = s.shape[1]
+    if isinstance(threshold, float) or isinstance(threshold, int):
+        if (nc > 1):
+            threshold = np.repeat(threshold, nc)
     cn, idx = get_cn_idx(threshold)  # If threshold is a DataFrame, extract information
     threshold = clean_threshold(threshold)  # Returns as column vector
     # Ensure operations broadcast
-    y, s = cvec(y), cvec(s)
     y_shape = y.shape + (1,)
     t_shape = (1,) + threshold.shape
     y = y.reshape(y_shape)

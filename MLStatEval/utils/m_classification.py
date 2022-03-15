@@ -25,7 +25,8 @@ import bottleneck as bn
 from scipy.stats import norm
 
 # Internal packages
-from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool, find_empirical_precision
+from MLStatEval.utils.bootstrap import bca_calc
+from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool, find_empirical_precision, loo_precision
 from MLStatEval.utils.utils import check01, df_cn_idx_args, clean_y_s, clean_y_s_threshold, to_array, array_to_float, try_flatten
 
 """
@@ -110,10 +111,10 @@ class sens_or_spec():
         nc_den = den.shape[1]
         # Flatten if possible
         score = try_flatten(score)
-        den = try_flatten(den)
         if nc_score > nc_den == 1:
             # Duplicates columns
             den = np.tile(den, [1, nc_score])
+        den = try_flatten(den)
         if isinstance(cn, list):
             # If threshold was a DataFrame, return one as well
             score = pd.DataFrame(score, columns = cn, index=idx)
@@ -219,8 +220,10 @@ class specificity(sens_or_spec):
 # from MLStatEval.theory import gaussian_mixture
 # normal_dgp = gaussian_mixture()
 # normal_dgp.set_params(0.5,1,0,1,1)
-# y, s = normal_dgp.gen_mixture(100,10, seed=1)
-# self=precision(gamma=0.8,alpha=0.05)
+# y, s = normal_dgp.gen_mixture(100,20, seed=1)
+# gamma=0.6;alpha=0.05
+# normal_dgp.set_gamma(gamma)
+# self=precision(gamma=gamma,alpha=alpha)
 class precision():
     def __init__(self, gamma, alpha=0.05):
         assert check01(gamma), 'gamma needs to be between (0,1)'
@@ -267,7 +270,7 @@ class precision():
         else:
             return score
         
-    # method='percentile';n_bs=1000;seed=1
+    # method=lst_method;n_bs=1000;seed=1
     def learn_threshold(self, y, s, method='percentile', n_bs=1000, seed=None):
         """
         Different CI approaches for threshold for gamma target
@@ -291,9 +294,9 @@ class precision():
         if seed is not None:
             assert seed > 0, 'seed must be positive!'
             self.seed = int(seed)
-        # Add on this many SDs
-        z_alpha = norm.ppf(1-self.alpha)
-        q_alpha = norm.ppf(self.alpha)
+        # We use 1-alpha since we want to pick upper bound
+        m_alpha = 1 - self.alpha
+        z_alpha = norm.ppf(m_alpha)
         # Make scores into column vectors
         y, s = clean_y_s(y, s)
         # Calculate point estimate and bootstrap
@@ -311,34 +314,22 @@ class precision():
         threshold_bs = find_empirical_precision(y=y_bs_val, s=s_bs_val, target=self.gamma)
         # Return based on method
         di_threshold = dict.fromkeys(self.method)
-        if 'point' in self.method:
-            # i) "point": point esimate
+        if 'point' in self.method:  # i) "point": point esimate
             threshold_point = threshold.copy()
             di_threshold['point'] = threshold_point
-        if 'basic' in self.method:
-            # ii) "basic": point estimate ± standard error*quantile
-            # FAST NUMPY NANSTD...
-            se_bs = threshold_bs.std(ddof=1,axis=0)
-            threshold_basic = threshold + se_bs*q_alpha
+        if 'basic' in self.method:  # ii) "basic": point estimate ± standard error*quantile
+            se_bs = bn.nanstd(threshold_bs, ddof=1, axis=1)
+            threshold_basic = threshold + se_bs*z_alpha
             di_threshold['basic'] = threshold_basic
-        if 'percentile' in self.method:
-            # iii) "percentile": Use the alpha/1-alpha percentile of BS dist
-            threshold_perc = np.quantile(threshold_bs, m_alpha, axis=0)
+        if 'percentile' in self.method:  # iii) "percentile": Use the alpha/1-alpha percentile of BS dist
+            thresh_bool = ~np.isnan(threshold_bs)  # Some values are nan if threshold value cannot be obtained
+            # Transpose applied to match dimension structure of sens/spec
+            threshold_perc = quant_by_bool(threshold_bs.T, thresh_bool.T, m_alpha)
             di_threshold['percentile'] = threshold_perc
-        if 'bca' in self.method:
-            # iv) Bias-corrected and accelerated
+        if 'bca' in self.method:  # iv) Bias-corrected and accelerated
             # Calculate LOO statistics
-            threshold_loo = loo_quant_by_bool(data=s, boolean=y_bool, q=self.m_gamma)
-            threshold_loo_mu = np.expand_dims(bn.nanmean(threshold_loo, axis=1), 1)
-            # BCa calculation
-            zhat0 = norm.ppf((np.sum(threshold_bs < threshold, 0) + 1) / (self.n_bs + 1))
-            num = bn.nansum((threshold_loo_mu - threshold_loo)**3,axis=1)
-            den = 6* (bn.nansum((threshold_loo_mu - threshold_loo)**2,axis=1))**(3/2)
-            ahat = num / den
-            alpha_adj = norm.cdf(zhat0 + (zhat0+z_alpha)/(1-ahat*(zhat0+z_alpha))).flatten()
-            if self.choice == 'specificity':
-                alpha_adj = 1 - alpha_adj
-            threshold_bca = quant_by_col(threshold_bs, alpha_adj)
+            threshold_loo = loo_precision(y, s, self.gamma)
+            threshold_bca = bca_calc(loo=threshold_loo, bs=threshold_bs, baseline=threshold, alpha=self.alpha, upper=True)
             di_threshold['bca'] = threshold_bca
         # Return different CIs
         res_ci = pd.DataFrame.from_dict(di_threshold)
@@ -346,4 +337,21 @@ class precision():
         res_ci = array_to_float(res_ci)
         return res_ci        
 
-
+    def estimate_power(self, spread, n_trial):
+        """
+        spread:             Null hypothesis spread (gamma - gamma_{H0})
+        n_trial:            Expected number of trial points (note this is class specific!)
+        """
+        cn, idx = df_cn_idx_args(spread, n_trial)
+        # Allow for vectorization
+        spread, n_trial = to_array(spread), to_array(n_trial)
+        assert np.all(spread > 0) & np.all(spread < self.gamma), 'spread must be between (0, gamma)'
+        gamma0 = self.gamma - spread
+        sig0 = np.sqrt( gamma0*(1-gamma0) / n_trial )
+        sig = np.sqrt( self.gamma*(1-self.gamma) / n_trial )
+        z_alpha = norm.ppf(1-self.alpha)
+        power = norm.cdf( (spread - sig0*z_alpha) / sig )
+        power = array_to_float(power)
+        if isinstance(cn, list):
+            power = pd.DataFrame(power, columns = cn, index=idx)
+        return power

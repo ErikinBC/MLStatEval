@@ -1,6 +1,7 @@
 # Functions that do vectorized operations for different summary statistics
 import numpy as np
-from MLStatEval.utils.utils import cvec, try_flatten
+import pandas as pd
+from MLStatEval.utils.utils import cvec
 
 def vec_arange(starts, lengths):
     """Create multiple aranges with [start1, start2,...] and [length1, length2,...]
@@ -13,33 +14,15 @@ def vec_arange(starts, lengths):
     cat_range = cat_start + cat_counter
     return cat_range
 
-# np.random.seed(1)
-# mu=np.arange(0,1,0.01);target=0.6
-# y=np.random.binomial(1,mu)
-# s=0.2*np.random.randn(mu.shape[0])+mu
-# import pandas as pd
 
-# def df_precision(y, s, target):
-#     df = pd.DataFrame({'y':y, 's':s})
-#     df.sort_values('s',ascending=False, inplace=True)
-#     df = df.assign(tps=lambda x: x['y'].cumsum())
-#     df = df.assign(den=lambda x: 1+np.arange(len(df)))
-#     df = df.assign(ppv=lambda x: x['tps']/x['den'])
-#     df = df.assign(thresh=lambda x: np.where(x['ppv']>=target,x['s'],np.inf))
-#     idx_star = df['thresh'].idxmin()
-#     thresh_star = s[idx_star]
-#     yhat = np.where(s >= thresh_star, 1, 0)
-#     ppv = np.mean(y[yhat == 1])
-#     return thresh_star, ppv
-    
-
-# y=y_bs_val; s=s_bs_val; target=self.gamma
-def find_empirical_precision(y, s, target):
+def find_empirical_precision(y, s, target, ret_idx=False):
     """Find infiimum threshold that gets a precision target
+
+    Assumes that y,s have dimensions that correspond to: (# of observations) x (# of columns) x (# of simulations). This is important for take_along_axis and ridx
     """
     y, s = cvec(y), cvec(s)
     assert y.shape == s.shape, 'y and s need to be the same shape'
-    n, k = s.shape[:2]
+    n, _ = s.shape[:2]
     # number of observations needs to march s.shape
     ridx = np.arange(1,n+1)
     nd = len(y.shape) - len(ridx.shape)
@@ -54,6 +37,8 @@ def find_empirical_precision(y, s, target):
     hits_target = ppv >= target
     s_adjust = np.where(hits_target, s_sort, np.inf)
     idx_thresh = np.argmin(s_adjust, axis=0)
+    if ret_idx:
+        return idx_thresh
     any_thresh = np.any(hits_target, axis=0)
     thresh_s = np.take_along_axis(s_sort, idx_thresh[None], 0)
     # If no target is met, no threshold
@@ -61,6 +46,64 @@ def find_empirical_precision(y, s, target):
     thresh_s = np.where(any_thresh, thresh_s, np.nan)
     thresh_s = np.squeeze(thresh_s)
     return thresh_s
+
+
+def gt2inf(x, t, r):
+    """
+    Compare array x >= t, where condition is met, put r, otherwise inf
+    """
+    z = np.where(x >= t, r, np.inf)
+    return z
+
+def loo_precision(y, s, target):
+    """calculates the leave-one-out precision using an interpolation method. Since the empirical infimum has to occur on y==1, and the score below it has to be below the target....
+
+    This can be done rapidly since precision shifts only for the point around threshold
+    """
+    y, s = cvec(y), cvec(s)
+    assert y.shape == s.shape, 'y and s need to be the same shape'
+    n, k = s.shape[:2]
+    # number of observations needs to march s.shape
+    ridx = np.arange(1,n+1)
+    nd = len(y.shape) - len(ridx.shape)
+    if nd > 0:
+        ridx = np.expand_dims(ridx, list(range(nd))).T
+    idx_s = np.argsort(-s, axis=0)
+    y_sort = np.take_along_axis(y, idx_s, 0)
+    s_sort = np.take_along_axis(s, idx_s, 0)
+    tps = np.cumsum(y_sort, axis=0)
+    fps = np.cumsum(1-y_sort, axis=0)
+    ppv = tps / (tps + fps)
+    # Three conditions:
+    # i) 1 is dropped above threshold
+    tps_1up = np.maximum(tps - 1, 0)
+    ppv_1up = tps_1up / (tps_1up + fps)
+    idx_1up = np.argmin(gt2inf(ppv_1up, target, s_sort), axis=0)[None]
+    thresh_1up = np.take_along_axis(s_sort, idx_1up, axis=0)
+    check_1up = np.take_along_axis(ppv_1up, idx_1up, axis=0) >= target
+    # (ii) 0 is dropped above threshold
+    fps_0up = np.maximum(fps - 1, 0)
+    ppv_0up = tps / (tps + fps_0up)
+    idx_0up = np.argmin(gt2inf(ppv_0up, target, s_sort), axis=0)[None]
+    thresh_0up = np.take_along_axis(s_sort, idx_0up, axis=0)
+    check_0up = np.take_along_axis(ppv_0up, idx_0up, axis=0) >= target
+    # (iii) 1/0 is dropped below threshold results in original value
+    idx_01b = find_empirical_precision(y, s, target, ret_idx=True)[None]
+    thresh_01b = np.take_along_axis(s_sort, idx_01b, axis=0)
+    check_01b = np.take_along_axis(ppv, idx_01b, axis=0) >= target
+    # Calculate number of times condition is met
+    n_1up = np.take_along_axis(tps, idx_01b, axis=0)
+    n_0up = (idx_01b+1) - n_1up
+    n_01b = n - (n_1up + n_0up)
+    # Repeat array to match this
+    n_rep = np.r_[n_1up, n_0up, n_01b].T
+    assert np.sum(n_rep, axis=1).var() == 0, 'n_rep should be the same for each'
+    s_rep = np.r_[thresh_1up, thresh_0up, thresh_01b].T
+    # If target is not met, return nan
+    check_rep = np.r_[check_1up, check_0up, check_01b].T
+    s_rep[~check_rep] = np.nan
+    s_loo = np.repeat(s_rep.flat, n_rep.flat).reshape([k, n]).T
+    return s_loo
 
 
 def loo_quant_by_bool(data, boolean, q):
@@ -160,7 +203,7 @@ def quant_by_bool(data, boolean, q, interpolate='linear'):
         boolean = boolean.reshape(shape)
         x = x.reshape(shape)
     assert x.shape == boolean.shape
-    ns, nr, nc = x.shape
+    ns, _, nc = x.shape
     sidx = np.repeat(range(ns), nc)
     cidx = np.tile(range(nc), ns)
 

@@ -32,8 +32,8 @@ seed = 1
 p = 0.5
 mu1, mu0 = 1, 0
 sd1, sd0 = 1, 1
-n_test = 100 #250
-k_exper = 5000
+n_test = 100
+k_exper = 2500
 idx_exper = np.arange(k_exper)+1
 normal_dgp = gaussian_mixture()
 normal_dgp.set_params(p, mu1, mu0, sd1, sd0)
@@ -46,10 +46,10 @@ alpha = 0.05  # type-I error (for either power or threshold)
 gamma = 0.60  # target performance
 spread = 0.1  # Null hypothesis spread
 n_trial = 100  # Number of (class specific) trial samples
-n_bs = 1000  # Number of bootstrap iterations
+n_bs = 250  # Number of bootstrap iterations
 
 # Loop over the difference performance measures
-lst_m = ['sensitivity', 'specificity']
+lst_m = ['sensitivity', 'specificity', 'precision']
 
 # Pre-calculate oracle values
 normal_dgp.set_gamma(gamma=gamma)
@@ -124,7 +124,7 @@ df_pval_agg.drop(columns=['num', 'den'], inplace=True)
 fmt_gamma = '%i%%' % (gamma*100)
 
 # (i) Get threshold position by coverage ,'coverage'
-pos_txt = df_thresh.query('coverage==True').groupby(['m'])['threshold'].quantile([0.01,0.99])
+pos_txt = df_thresh.query('coverage==True').groupby(['m'])['threshold'].quantile([0.05,0.95])
 pos_txt = pos_txt.reset_index().rename(columns={'level_1':'moment'})
 pos_txt = pos_txt.merge(vlines).assign(err=lambda x: (x['threshold']-x['oracle']).abs())
 pos_txt = pos_txt.loc[pos_txt.groupby('m')['err'].idxmax()]
@@ -137,7 +137,7 @@ pos_txt['lbl'] = pos_txt.apply(lambda x: '%0.1f%% (%0.1f-%0.1f%%)' % (100*x['cov
 # (ii) Plot
 n_method = df_thresh_agg['method'].unique().shape[0]
 n_msr = df_thresh_agg['m'].unique().shape[0]
-width = n_msr*4.0
+width = n_msr*3.5
 height = n_method*2.5
 
 # Order categories
@@ -171,7 +171,7 @@ gg_power_comp = (pn.ggplot(tmp_pval, pn.aes(x='tt',y='value',color='method')) +
     pn.theme(axis_title_x=pn.element_blank()) + 
     pn.geom_linerange(pn.aes(ymin='lb',ymax='ub'), position=posd) + 
     pn.geom_point(position=posd,size=2))
-gg_save('gg_power_comp.png', dir_figures, gg_power_comp, width, 4)
+gg_save('gg_power_comp.png', dir_figures, gg_power_comp, width, height)
 
 
 print('~~~ p2_threshold_power.py ~~~')

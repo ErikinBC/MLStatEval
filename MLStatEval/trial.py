@@ -112,17 +112,3 @@ class classification():
         self.power_hat = self.m.estimate_power(spread=spread, n_trial=n_trial_exp)
         
 
-
-
-
-
-# class two_sided_power():
-#     1
-
-
-# class regression():
-#     """
-#     Main class for supporting statistical calibration of ML models for regression task
-#     """
-#     def __init__(self):
-#         None

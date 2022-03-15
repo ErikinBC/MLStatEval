@@ -26,6 +26,7 @@ from scipy.stats import norm
 
 # Internal packages
 from MLStatEval.utils.bootstrap import bca_calc
+from MLStatEval.utils.stats import umbrella_thresh
 from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool, find_empirical_precision, loo_precision
 from MLStatEval.utils.utils import check01, df_cn_idx_args, clean_y_s, clean_y_s_threshold, to_array, array_to_float, try_flatten
 
@@ -38,7 +39,7 @@ percentile:             Use the alpha (or 1-alpha) percentile
 bca:                    Bias-corrected and accelerated bootstrap
 umbrella:               Neyman-Pearson Umbrella
 """
-lst_method = ['point', 'basic', 'percentile', 'bca']  #, 'umbrella'
+lst_method = ['point', 'basic', 'percentile', 'bca', 'umbrella']
 
 # self = sens_or_spec(choice=m, method=lst_method, alpha=0.05, n_bs=1000, seed=1)
 class sens_or_spec():
@@ -152,11 +153,13 @@ class sens_or_spec():
             assert seed > 0, 'seed must be positive!'
             self.seed = int(seed)
         # Do we want to add or subtract off z standard deviations?
-        z_alpha = norm.ppf(self.alpha)
         m_alpha = self.alpha
         if self.choice == 'specificity':
             m_alpha = 1 - self.alpha
         q_alpha = norm.ppf(m_alpha)
+        upper = True
+        if self.choice == 'sensitivity':
+            upper = False
         # Make scores into column vectors
         y, s = clean_y_s(y, s)
         y_bool = (y==self.j)
@@ -187,18 +190,19 @@ class sens_or_spec():
             # iv) Bias-corrected and accelerated
             # Calculate LOO statistics
             threshold_loo = loo_quant_by_bool(data=s, boolean=y_bool, q=self.m_gamma)
-            threshold_loo_mu = np.expand_dims(bn.nanmean(threshold_loo, axis=1), 1)
-            # BCa calculation
-            zhat0 = norm.ppf((np.sum(threshold_bs < threshold, 0) + 1) / (self.n_bs + 1))
-            num = bn.nansum((threshold_loo_mu - threshold_loo)**3,axis=1)
-            den = 6* (bn.nansum((threshold_loo_mu - threshold_loo)**2,axis=1))**(3/2)
-            ahat = num / den
-            alpha_adj = norm.cdf(zhat0 + (zhat0+z_alpha)/(1-ahat*(zhat0+z_alpha)))
-            alpha_adj = try_flatten(alpha_adj)
-            if self.choice == 'specificity':
-                alpha_adj = 1 - alpha_adj
-            threshold_bca = quant_by_col(threshold_bs, alpha_adj)
+            threshold_bca = bca_calc(loo=np.squeeze(threshold_loo),bs=threshold_bs.T, baseline=threshold, alpha=self.alpha, axis=0,upper=upper)
             di_threshold['bca'] = threshold_bca
+        if 'umbrella' in self.method:
+            if self.choice == 'sensitivity':
+                n = np.sum(y, axis=0)
+                s_sort = np.sort(np.where(y == 1, s, np.nan), axis=0)
+            else:
+                n = np.sum(1 - y, axis=0)
+                s_sort = np.sort(np.where(y == 0, s, np.nan), axis=0)
+            idx_umb = umbrella_thresh(n=n ,target=self.gamma, alpha=self.alpha, upper=upper)
+            threshold_umb = np.take_along_axis(s_sort, idx_umb[None], axis=0)
+            threshold_umb = try_flatten(threshold_umb)
+            di_threshold['umbrella'] = threshold_umb
         # Return different CIs
         res_ci = pd.DataFrame.from_dict(di_threshold)
         # If it's a 1x1 array or dataframe, return as a float
@@ -333,6 +337,8 @@ class precision():
             di_threshold['bca'] = threshold_bca
         # Return different CIs
         res_ci = pd.DataFrame.from_dict(di_threshold)
+        # Remove null columns
+        res_ci = res_ci.loc[:,~res_ci.isnull().all()]
         # If it's a 1x1 array or dataframe, return as a float
         res_ci = array_to_float(res_ci)
         return res_ci        

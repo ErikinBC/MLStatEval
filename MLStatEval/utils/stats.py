@@ -1,11 +1,49 @@
 import numpy as np
 import pandas as pd
+from scipy.special import comb
 from scipy.stats import rankdata, skewnorm
 from scipy.optimize import root_scalar
 from statsmodels.stats.proportion import proportion_confint as prop_CI
 # Internal modules
-from MLStatEval.utils.utils import cvec
+from MLStatEval.utils.utils import cvec, check01, array_to_float
 
+def umbrella_thresh(n, target, alpha, upper=True):
+    """
+    Function to implement Neyman-Pearson umbrella rank choice. WARNING, if n is too large, overflow error possible
+
+    Parameters
+    ----------
+    n:          sample size (class specific)
+    k:          performance target
+    alpha:      type-I error
+    upper:      should k be for for the ascending or descending rank order?
+    Returns
+    -------
+    """
+    assert check01(target), 'target needs to be between (0,1)'
+    assert check01(alpha), 'alpha needs to be between (0,1)'
+    is_float = (isinstance(n, int) or isinstance(n, float))
+    is_array = (isinstance(n, np.ndarray) | isinstance(n, pd.Series))
+    assert is_float or is_array, 'n must be either a float/int or an array'
+    if is_float:
+        n_seq = np.array([n])
+    else:
+        n_seq = pd.Series(np.unique(n))
+    di_holder = {}
+    for n1 in n_seq:
+        rank_seq = np.arange(n1+1)
+        rank_pdf = np.array([comb(n1, l, True)*((1-target)**l)*(target**(n1-l)) for l in rank_seq])
+        rank_cdf = np.array([rank_pdf[l:].sum() for l in rank_seq])
+        res = pd.DataFrame({'rank':rank_seq, 'pdf':rank_pdf, 'cdf':rank_cdf, 'delt':1-rank_cdf})
+        rmax = res[res['delt'] <= alpha]['rank'].argmax()
+        if upper:
+            rmax = n1 - rmax
+        else:  # Flip
+            rmax -= 1  # For numpy indexing
+        di_holder[n1] = rmax
+    rvec = np.array(pd.Series(n).map(di_holder))
+    rvec = array_to_float(rvec)
+    return rvec
 
 
 # Probability that one skewnorm is less than another

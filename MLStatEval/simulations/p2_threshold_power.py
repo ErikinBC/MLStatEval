@@ -22,7 +22,7 @@ dir_figures = os.path.join(dir_here, 'figures')
 # dir_figures = os.path.join(os.getcwd(),'MLStatEval','simulations','figures')
 
 # Labels for methods
-di_method = {'point':'Point', 'basic':'Classical', 'percentile':'Percentile', 'bca':'BCa'}
+di_method = {'point':'Point', 'basic':'Classical', 'percentile':'Percentile', 'bca':'BCa', 'umbrella':'NP Umbrella'}
 
 ###############################
 # ----- (1) PARAMETERS ------ #
@@ -33,7 +33,7 @@ p = 0.5
 mu1, mu0 = 1, 0
 sd1, sd0 = 1, 1
 n_test = 100
-k_exper = 2500
+k_exper = 5000
 idx_exper = np.arange(k_exper)+1
 normal_dgp = gaussian_mixture()
 normal_dgp.set_params(p, mu1, mu0, sd1, sd0)
@@ -143,7 +143,6 @@ height = n_method*2.5
 # Order categories
 tmp_thresh = df_thresh.assign(method=lambda x: pd.Categorical(x['method'], list(di_method)))
 tmp_txt = pos_txt.assign(method=lambda x: pd.Categorical(x['method'], list(di_method)))
-
 # (i) Threshold and oracle
 gg_threshold_method = (pn.ggplot(tmp_thresh, pn.aes(x='threshold')) + pn.theme_bw() + 
     pn.labs(x='Empirically chosen threshold',y='Simulation frequency') + 

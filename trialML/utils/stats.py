@@ -1,9 +1,13 @@
+import warnings
 import numpy as np
 import pandas as pd
 from scipy.special import comb
 from scipy.stats import rankdata, skewnorm
 from scipy.optimize import root_scalar
 from statsmodels.stats.proportion import proportion_confint as prop_CI
+
+warnings.filterwarnings("ignore", message="overflow encountered in _beta_isf")
+
 # Internal modules
 from trialML.utils.utils import cvec, check01, array_to_float
 

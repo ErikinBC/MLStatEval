@@ -29,7 +29,7 @@ from trialML.utils.theory import power_binom
 from trialML.utils.bootstrap import bca_calc
 from trialML.utils.stats import umbrella_thresh
 from trialML.utils.vectorized import quant_by_bool, loo_quant_by_bool, find_empirical_precision, loo_precision
-from trialML.utils.utils import check01, df_cn_idx_args, clean_y_s, clean_y_s_threshold, to_array, array_to_float, try_flatten
+from trialML.utils.utils import check01, clean_y_s, clean_y_s_threshold, array_to_float, try_flatten
 
 """
 List of valid methods for .learn_threshold
@@ -152,46 +152,48 @@ class sens_or_spec():
         # Make scores into column vectors
         y, s = clean_y_s(y, s)
         y_bool = (y==self.j)
-        # Calculate point estimate and bootstrap
+        # Calculate point estimate
         threshold = quant_by_bool(data=s, boolean=y_bool, q=self.m_gamma, interpolate='linear')
-        y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
-        shape = (n_bs,)+y.shape
-        y_bs_val = y_bs.values.reshape(shape)
-        s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
-        y_bs_bool = (y_bs_val==self.j)
-        threshold_bs = quant_by_bool(data=s_bs_val, boolean=y_bs_bool, q=self.m_gamma, interpolate='linear')
         # Return based on method
         di_threshold = dict.fromkeys(self.method)
         if 'point' in self.method:
             # i) "point": point esimate
             threshold_point = threshold.copy()
             di_threshold['point'] = threshold_point
-        if 'basic' in self.method:
-            # ii) "basic": point estimate ± standard error*quantile
-            se_bs = threshold_bs.std(ddof=1,axis=0)
-            threshold_basic = threshold + se_bs*q_alpha
-            di_threshold['basic'] = threshold_basic
-        if 'percentile' in self.method:
-            # iii) "percentile": Use the alpha/1-alpha percentile of BS dist
-            threshold_perc = np.quantile(threshold_bs, m_alpha, axis=0)
-            di_threshold['percentile'] = threshold_perc
-        if 'bca' in self.method:
-            # iv) Bias-corrected and accelerated
-            # Calculate LOO statistics
-            threshold_loo = loo_quant_by_bool(data=s, boolean=y_bool, q=self.m_gamma)
-            threshold_bca = bca_calc(loo=np.squeeze(threshold_loo),bs=threshold_bs.T, baseline=threshold, alpha=self.alpha, axis=0,upper=upper)
-            di_threshold['bca'] = threshold_bca
-        if 'umbrella' in self.method:
-            if self.choice == 'sensitivity':
-                n = np.sum(y, axis=0)
-                s_sort = np.sort(np.where(y == 1, s, np.nan), axis=0)
-            else:
-                n = np.sum(1 - y, axis=0)
-                s_sort = np.sort(np.where(y == 0, s, np.nan), axis=0)
-            idx_umb = umbrella_thresh(n=n ,target=self.gamma, alpha=self.alpha, upper=upper)
-            threshold_umb = np.take_along_axis(s_sort, idx_umb[None], axis=0)
-            threshold_umb = try_flatten(threshold_umb)
-            di_threshold['umbrella'] = threshold_umb
+        if len(np.setdiff1d(self.method, ['point'])) > 0:
+            # Run bootstrap
+            y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
+            shape = (n_bs,)+y.shape
+            y_bs_val = y_bs.values.reshape(shape)
+            s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
+            y_bs_bool = (y_bs_val==self.j)
+            threshold_bs = quant_by_bool(data=s_bs_val, boolean=y_bs_bool, q=self.m_gamma, interpolate='linear')
+            if 'basic' in self.method:
+                # ii) "basic": point estimate ± standard error*quantile
+                se_bs = threshold_bs.std(ddof=1,axis=0)
+                threshold_basic = threshold + se_bs*q_alpha
+                di_threshold['basic'] = threshold_basic
+            if 'percentile' in self.method:
+                # iii) "percentile": Use the alpha/1-alpha percentile of BS dist
+                threshold_perc = np.quantile(threshold_bs, m_alpha, axis=0)
+                di_threshold['percentile'] = threshold_perc
+            if 'bca' in self.method:
+                # iv) Bias-corrected and accelerated
+                # Calculate LOO statistics
+                threshold_loo = loo_quant_by_bool(data=s, boolean=y_bool, q=self.m_gamma)
+                threshold_bca = bca_calc(loo=np.squeeze(threshold_loo),bs=threshold_bs.T, baseline=threshold, alpha=self.alpha, axis=0,upper=upper)
+                di_threshold['bca'] = threshold_bca
+            if 'umbrella' in self.method:
+                if self.choice == 'sensitivity':
+                    n = np.sum(y, axis=0)
+                    s_sort = np.sort(np.where(y == 1, s, np.nan), axis=0)
+                else:
+                    n = np.sum(1 - y, axis=0)
+                    s_sort = np.sort(np.where(y == 0, s, np.nan), axis=0)
+                idx_umb = umbrella_thresh(n=n ,target=self.gamma, alpha=self.alpha, upper=upper)
+                threshold_umb = np.take_along_axis(s_sort, idx_umb[None], axis=0)
+                threshold_umb = try_flatten(threshold_umb)
+                di_threshold['umbrella'] = threshold_umb
         # Return different CIs
         res_ci = pd.DataFrame.from_dict(di_threshold)
         # If it's a 1x1 array or dataframe, return as a float
@@ -293,36 +295,37 @@ class precision():
         y, s = clean_y_s(y, s)
         # Calculate point estimate and bootstrap
         threshold = find_empirical_precision(y=y, s=s, target=self.gamma)
-        # Generate bootstrap distribution
-        y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
-        shape = (n_bs,)+y.shape
-        y_bs_val = y_bs.values.reshape(shape)
-        s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
-        # precision function needs axis order to be (# of observations) x (# of columns) x (# of simulations)
-        tidx = [1,2,0]
-        y_bs_val = y_bs_val.transpose(tidx)
-        s_bs_val = s_bs_val.transpose(tidx)
-        # Recalculate precision threshold on bootstrapped data
-        threshold_bs = find_empirical_precision(y=y_bs_val, s=s_bs_val, target=self.gamma)
         # Return based on method
         di_threshold = dict.fromkeys(self.method)
         if 'point' in self.method:  # i) "point": point esimate
             threshold_point = threshold.copy()
             di_threshold['point'] = threshold_point
-        if 'basic' in self.method:  # ii) "basic": point estimate ± standard error*quantile
-            se_bs = bn.nanstd(threshold_bs, ddof=1, axis=1)
-            threshold_basic = threshold + se_bs*z_alpha
-            di_threshold['basic'] = threshold_basic
-        if 'percentile' in self.method:  # iii) "percentile": Use the alpha/1-alpha percentile of BS dist
-            thresh_bool = ~np.isnan(threshold_bs)  # Some values are nan if threshold value cannot be obtained
-            # Transpose applied to match dimension structure of sens/spec
-            threshold_perc = quant_by_bool(threshold_bs.T, thresh_bool.T, m_alpha)
-            di_threshold['percentile'] = threshold_perc
-        if 'bca' in self.method:  # iv) Bias-corrected and accelerated
-            # Calculate LOO statistics
-            threshold_loo = loo_precision(y, s, self.gamma)
-            threshold_bca = bca_calc(loo=threshold_loo, bs=threshold_bs, baseline=threshold, alpha=self.alpha, upper=True)
-            di_threshold['bca'] = threshold_bca
+        # Generate bootstrap distribution
+        if len(np.setdiff1d(self.method, ['point'])) > 0:    
+            y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
+            shape = (n_bs,)+y.shape
+            y_bs_val = y_bs.values.reshape(shape)
+            s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
+            # precision function needs axis order to be (# of observations) x (# of columns) x (# of simulations)
+            tidx = [1,2,0]
+            y_bs_val = y_bs_val.transpose(tidx)
+            s_bs_val = s_bs_val.transpose(tidx)
+            # Recalculate precision threshold on bootstrapped data
+            threshold_bs = find_empirical_precision(y=y_bs_val, s=s_bs_val, target=self.gamma)
+            if 'basic' in self.method:  # ii) "basic": point estimate ± standard error*quantile
+                se_bs = bn.nanstd(threshold_bs, ddof=1, axis=1)
+                threshold_basic = threshold + se_bs*z_alpha
+                di_threshold['basic'] = threshold_basic
+            if 'percentile' in self.method:  # iii) "percentile": Use the alpha/1-alpha percentile of BS dist
+                thresh_bool = ~np.isnan(threshold_bs)  # Some values are nan if threshold value cannot be obtained
+                # Transpose applied to match dimension structure of sens/spec
+                threshold_perc = quant_by_bool(threshold_bs.T, thresh_bool.T, m_alpha)
+                di_threshold['percentile'] = threshold_perc
+            if 'bca' in self.method:  # iv) Bias-corrected and accelerated
+                # Calculate LOO statistics
+                threshold_loo = loo_precision(y, s, self.gamma)
+                threshold_bca = bca_calc(loo=threshold_loo, bs=threshold_bs, baseline=threshold, alpha=self.alpha, upper=True)
+                di_threshold['bca'] = threshold_bca
         # Return different CIs
         res_ci = pd.DataFrame.from_dict(di_threshold)
         # Remove null columns

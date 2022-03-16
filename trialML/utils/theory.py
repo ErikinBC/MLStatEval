@@ -8,7 +8,7 @@ from scipy.stats import norm
 from scipy.optimize import root_scalar
 from trialML.utils.utils import to_array, array_to_float, df_cn_idx_args
 
-def power_binom(spread, n_trial, gamma, alpha):
+def power_binom(spread, n_trial, gamma, alpha, gamma0=None):
     """
     spread:             Null hypothesis spread (gamma - gamma_{H0})
     n_trial:            Expected number of trial points (note this is class specific!)
@@ -16,8 +16,13 @@ def power_binom(spread, n_trial, gamma, alpha):
     cn, idx = df_cn_idx_args(spread, n_trial)
     # Allow for vectorization
     spread, n_trial = to_array(spread), to_array(n_trial)
+    # Return to scalar if necessary
+    spread, n_trial = array_to_float(spread), array_to_float(n_trial)
     assert np.all(spread > 0) & np.all(spread < gamma), 'spread must be between (0, gamma)'
-    gamma0 = gamma - spread
+    if gamma0 is None:
+        gamma0 = gamma - spread
+    else:
+        spread = gamma - gamma0
     sig0 = np.sqrt( gamma0*(1-gamma0) / n_trial )
     sig = np.sqrt( gamma*(1-gamma) / n_trial )
     z_alpha = norm.ppf(1-alpha)

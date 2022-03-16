@@ -25,9 +25,10 @@ import bottleneck as bn
 from scipy.stats import norm
 
 # Internal packages
+from trialML.utils.theory import power_binom
 from trialML.utils.bootstrap import bca_calc
 from trialML.utils.stats import umbrella_thresh
-from trialML.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool, find_empirical_precision, loo_precision
+from trialML.utils.vectorized import quant_by_bool, loo_quant_by_bool, find_empirical_precision, loo_precision
 from trialML.utils.utils import check01, df_cn_idx_args, clean_y_s, clean_y_s_threshold, to_array, array_to_float, try_flatten
 
 """
@@ -72,18 +73,7 @@ class sens_or_spec():
         spread:             Null hypothesis spread (gamma - gamma_{H0})
         n_trial:            Expected number of trial points (note this is class specific!)
         """
-        cn, idx = df_cn_idx_args(spread, n_trial)
-        # Allow for vectorization
-        spread, n_trial = to_array(spread), to_array(n_trial)
-        assert np.all(spread > 0) & np.all(spread < self.gamma), 'spread must be between (0, gamma)'
-        gamma0 = self.gamma - spread
-        sig0 = np.sqrt( gamma0*(1-gamma0) / n_trial )
-        sig = np.sqrt( self.gamma*(1-self.gamma) / n_trial )
-        z_alpha = norm.ppf(1-self.alpha)
-        power = norm.cdf( (spread - sig0*z_alpha) / sig )
-        power = array_to_float(power)
-        if isinstance(cn, list):
-            power = pd.DataFrame(power, columns = cn, index=idx)
+        power = power_binom(spread, n_trial, self.gamma, self.alpha)
         return power
 
     def statistic(self, y, s, threshold, return_den=False):
@@ -148,10 +138,9 @@ class sens_or_spec():
             assert all([meth in lst_method for meth in method]), 'method list must only contain valid methods: %s' % lst_method
             self.method = method
         assert n_bs > 0, 'number of bootstrap iterations must be positive!'
-        self.n_bs = int(n_bs)
+        n_bs = int(n_bs)
         if seed is not None:
             assert seed > 0, 'seed must be positive!'
-            self.seed = int(seed)
         # Do we want to add or subtract off z standard deviations?
         m_alpha = self.alpha
         if self.choice == 'specificity':
@@ -165,8 +154,8 @@ class sens_or_spec():
         y_bool = (y==self.j)
         # Calculate point estimate and bootstrap
         threshold = quant_by_bool(data=s, boolean=y_bool, q=self.m_gamma, interpolate='linear')
-        y_bs = pd.DataFrame(y).sample(frac=self.n_bs, replace=True, random_state=self.seed)
-        shape = (self.n_bs,)+y.shape
+        y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
+        shape = (n_bs,)+y.shape
         y_bs_val = y_bs.values.reshape(shape)
         s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
         y_bs_bool = (y_bs_val==self.j)
@@ -294,10 +283,9 @@ class precision():
             assert all([meth in lst_method for meth in method]), 'method list must only contain valid methods: %s' % lst_method
             self.method = method
         assert n_bs > 0, 'number of bootstrap iterations must be positive!'
-        self.n_bs = int(n_bs)
+        n_bs = int(n_bs)
         if seed is not None:
             assert seed > 0, 'seed must be positive!'
-            self.seed = int(seed)
         # We use 1-alpha since we want to pick upper bound
         m_alpha = 1 - self.alpha
         z_alpha = norm.ppf(m_alpha)
@@ -306,8 +294,8 @@ class precision():
         # Calculate point estimate and bootstrap
         threshold = find_empirical_precision(y=y, s=s, target=self.gamma)
         # Generate bootstrap distribution
-        y_bs = pd.DataFrame(y).sample(frac=self.n_bs, replace=True, random_state=self.seed)
-        shape = (self.n_bs,)+y.shape
+        y_bs = pd.DataFrame(y).sample(frac=n_bs, replace=True, random_state=seed)
+        shape = (n_bs,)+y.shape
         y_bs_val = y_bs.values.reshape(shape)
         s_bs_val = pd.DataFrame(s).loc[y_bs.index].values.reshape(shape)
         # precision function needs axis order to be (# of observations) x (# of columns) x (# of simulations)
@@ -348,16 +336,5 @@ class precision():
         spread:             Null hypothesis spread (gamma - gamma_{H0})
         n_trial:            Expected number of trial points (note this is class specific!)
         """
-        cn, idx = df_cn_idx_args(spread, n_trial)
-        # Allow for vectorization
-        spread, n_trial = to_array(spread), to_array(n_trial)
-        assert np.all(spread > 0) & np.all(spread < self.gamma), 'spread must be between (0, gamma)'
-        gamma0 = self.gamma - spread
-        sig0 = np.sqrt( gamma0*(1-gamma0) / n_trial )
-        sig = np.sqrt( self.gamma*(1-self.gamma) / n_trial )
-        z_alpha = norm.ppf(1-self.alpha)
-        power = norm.cdf( (spread - sig0*z_alpha) / sig )
-        power = array_to_float(power)
-        if isinstance(cn, list):
-            power = pd.DataFrame(power, columns = cn, index=idx)
+        power = power_binom(spread, n_trial, self.gamma, self.alpha)
         return power

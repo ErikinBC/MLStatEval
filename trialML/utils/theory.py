@@ -3,9 +3,30 @@ Script which contains helper functions for Gaussian mixture theory
 """
 
 import numpy as np
+import pandas as pd
 from scipy.stats import norm
 from scipy.optimize import root_scalar
-from trialML.utils.utils import to_array, array_to_float
+from trialML.utils.utils import to_array, array_to_float, df_cn_idx_args
+
+def power_binom(spread, n_trial, gamma, alpha):
+    """
+    spread:             Null hypothesis spread (gamma - gamma_{H0})
+    n_trial:            Expected number of trial points (note this is class specific!)
+    """
+    cn, idx = df_cn_idx_args(spread, n_trial)
+    # Allow for vectorization
+    spread, n_trial = to_array(spread), to_array(n_trial)
+    assert np.all(spread > 0) & np.all(spread < gamma), 'spread must be between (0, gamma)'
+    gamma0 = gamma - spread
+    sig0 = np.sqrt( gamma0*(1-gamma0) / n_trial )
+    sig = np.sqrt( gamma*(1-gamma) / n_trial )
+    z_alpha = norm.ppf(1-alpha)
+    power = norm.cdf( (spread - sig0*z_alpha) / sig )
+    power = array_to_float(power)
+    if isinstance(cn, list):
+        power = pd.DataFrame(power, columns = cn, index=idx)
+    return power
+
 
 def oracle_auroc(mu1, mu0, sd1, sd0):
     auroc = norm.cdf((mu1 - mu0) / np.sqrt(sd1**2 + sd0**2))

@@ -17,8 +17,10 @@ def umbrella_thresh(n, target, alpha, upper=True):
     k:          performance target
     alpha:      type-I error
     upper:      should k be for for the ascending or descending rank order?
+    
     Returns
     -------
+    Row index for sorted values
     """
     assert check01(target), 'target needs to be between (0,1)'
     assert check01(alpha), 'alpha needs to be between (0,1)'

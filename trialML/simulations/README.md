@@ -7,7 +7,7 @@ The scripts in this folder carry out the various simulations needed to generate 
 	II. `r2_get_fda.R`: Gets the number of FDA approvals for SAMD with ML/AI and produces `figures/gg_fda.png` and `data/df_fda.csv`.
 2. `pipeline_py.sh` creates the conda environment (`set_env.sh`) and then generates various figures.
 	I. `p1_gen_roc.py`: Generates the ROC figures `figures/{gg_roc_gt,gg_auc_gt}.png`.
-	II. `p2_thresold_power.py`: 
+	II. `p2_thresold_power.py`: Generates plots to show coverage of threshold choice and powe estimates `figures/{gg_power_comp,gg_threshold_method}.png`.
 	III. `p3_precision.py`: Generates (non) monotonic precision/threshold trade-offs `figures/gg_ppv.png`.
 	IV. `p4_`: 
 

@@ -6,8 +6,8 @@ import numpy as np
 import bottleneck as bn
 from scipy.stats import norm
 
-from MLStatEval.utils.utils import try_flatten
-from MLStatEval.utils.vectorized import quant_by_bool
+from trialML.utils.utils import try_flatten
+from trialML.utils.vectorized import quant_by_bool
 
 # loo=threshold_loo;bs=threshold_bs;baseline=threshold;upper=True;axis=0
 def bca_calc(loo, bs, baseline, alpha, axis=0, upper=True):

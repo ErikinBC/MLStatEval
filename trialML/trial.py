@@ -8,9 +8,9 @@ import pandas as pd
 from scipy.stats import norm
 
 # Internal methods
-from MLStatEval.utils.utils import check01, check_binary, get_cn_idx
-from MLStatEval.utils.m_classification import sensitivity, specificity, precision
-from MLStatEval.utils.m_classification import lst_method as learn_threshold_methods
+from trialML.utils.utils import check01, check_binary, get_cn_idx
+from trialML.utils.m_classification import sensitivity, specificity, precision
+from trialML.utils.m_classification import lst_method as learn_threshold_methods
 
 # Store all classification performance functions in a dictionary
 di_m_classification = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}

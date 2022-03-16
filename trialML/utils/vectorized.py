@@ -1,7 +1,7 @@
 # Functions that do vectorized operations for different summary statistics
 import numpy as np
 import pandas as pd
-from MLStatEval.utils.utils import cvec
+from trialML.utils.utils import cvec
 
 def vec_arange(starts, lengths):
     """Create multiple aranges with [start1, start2,...] and [length1, length2,...]

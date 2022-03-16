@@ -6,9 +6,9 @@ import plotnine as pn
 import patchworklib as pw
 from matplotlib import rc
 # Internal
-from MLStatEval.utils.utils import makeifnot
-from MLStatEval.theory import gaussian_mixture
-from MLStatEval.utils.stats import emp_roc_curve, auc_rank
+from trialML.utils.utils import makeifnot
+from trialML.theory import gaussian_mixture
+from trialML.utils.stats import emp_roc_curve, auc_rank
 
 # Set up directories
 dir_here = pathlib.Path(__file__).parent

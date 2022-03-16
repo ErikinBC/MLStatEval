@@ -1,0 +1,1 @@
+# To be able to run these scripts, from trialML-git run "python -m trialML.tests.test_{}"

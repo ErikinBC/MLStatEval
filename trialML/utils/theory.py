@@ -5,7 +5,7 @@ Script which contains helper functions for Gaussian mixture theory
 import numpy as np
 from scipy.stats import norm
 from scipy.optimize import root_scalar
-from MLStatEval.utils.utils import to_array, array_to_float
+from trialML.utils.utils import to_array, array_to_float
 
 def oracle_auroc(mu1, mu0, sd1, sd0):
     auroc = norm.cdf((mu1 - mu0) / np.sqrt(sd1**2 + sd0**2))

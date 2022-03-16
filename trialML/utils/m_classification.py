@@ -25,10 +25,10 @@ import bottleneck as bn
 from scipy.stats import norm
 
 # Internal packages
-from MLStatEval.utils.bootstrap import bca_calc
-from MLStatEval.utils.stats import umbrella_thresh
-from MLStatEval.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool, find_empirical_precision, loo_precision
-from MLStatEval.utils.utils import check01, df_cn_idx_args, clean_y_s, clean_y_s_threshold, to_array, array_to_float, try_flatten
+from trialML.utils.bootstrap import bca_calc
+from trialML.utils.stats import umbrella_thresh
+from trialML.utils.vectorized import quant_by_col, quant_by_bool, loo_quant_by_bool, find_empirical_precision, loo_precision
+from trialML.utils.utils import check01, df_cn_idx_args, clean_y_s, clean_y_s_threshold, to_array, array_to_float, try_flatten
 
 """
 List of valid methods for .learn_threshold
@@ -221,7 +221,7 @@ class specificity(sens_or_spec):
       sens_or_spec.__init__(self, choice='specificity', gamma=gamma, alpha=alpha)
 
 
-# from MLStatEval.theory import gaussian_mixture
+# from trialML.theory import gaussian_mixture
 # normal_dgp = gaussian_mixture()
 # normal_dgp.set_params(0.5,1,0,1,1)
 # y, s = normal_dgp.gen_mixture(100,20, seed=1)

@@ -6,9 +6,9 @@ import pandas as pd
 import plotnine as pn
 
 # Internal modules
-from MLStatEval.theory import gaussian_mixture
-from MLStatEval.utils.utils import gg_save, df_float2int
-from MLStatEval.utils.theory import precision_threshold_range
+from trialML.theory import gaussian_mixture
+from trialML.utils.utils import gg_save, df_float2int
+from trialML.utils.theory import precision_threshold_range
 
 # https://arxiv.org/pdf/1810.08635.pdf
 # https://icml.cc/Conferences/2009/papers/309.pdf

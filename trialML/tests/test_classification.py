@@ -1,5 +1,5 @@
 import unittest
-from MLStatEval.trial import classification
+from trialML.trial import classification
 
 class TestClassification(unittest.TestCase):
 

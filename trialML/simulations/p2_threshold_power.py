@@ -10,16 +10,16 @@ import pandas as pd
 import plotnine as pn
 
 # Internal modules
-from MLStatEval.trial import classification
-from MLStatEval.theory import gaussian_mixture
-from MLStatEval.utils.stats import get_CI
-from MLStatEval.utils.utils import gg_save
-from MLStatEval.utils.m_classification import lst_method
+from trialML.trial import classification
+from trialML.theory import gaussian_mixture
+from trialML.utils.stats import get_CI
+from trialML.utils.utils import gg_save
+from trialML.utils.m_classification import lst_method
 
 # Set up foldres
 dir_here = pathlib.Path(__file__).parent
 dir_figures = os.path.join(dir_here, 'figures')
-# dir_figures = os.path.join(os.getcwd(),'MLStatEval','simulations','figures')
+# dir_figures = os.path.join(os.getcwd(),'trialML','simulations','figures')
 
 # Labels for methods
 di_method = {'point':'Point', 'basic':'Classical', 'percentile':'Percentile', 'bca':'BCa', 'umbrella':'NP Umbrella'}

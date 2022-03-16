@@ -5,9 +5,9 @@ import pandas as pd
 from scipy.stats import norm
 
 # Internal methods
-from MLStatEval.utils.m_classification import sensitivity, specificity, precision
-from MLStatEval.utils.utils import check_binary, check01, get_cn_idx, array_to_float, to_array
-from MLStatEval.utils.theory import oracle_auroc, threshold_to_sensitivity, sensitivity_to_threshold, specificity_to_threshold, threshold_to_specificity, threshold_to_precision, precision_to_threshold
+from trialML.utils.m_classification import sensitivity, specificity, precision
+from trialML.utils.utils import check_binary, check01, get_cn_idx, array_to_float, to_array
+from trialML.utils.theory import oracle_auroc, threshold_to_sensitivity, sensitivity_to_threshold, specificity_to_threshold, threshold_to_specificity, threshold_to_precision, precision_to_threshold
 
 di_performance = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
 

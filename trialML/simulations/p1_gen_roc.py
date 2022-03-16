@@ -9,15 +9,15 @@ import patchworklib as pw
 from scipy.stats import skewnorm, norm
 
 # Internal modules
-from MLStatEval.theory import gaussian_mixture
-from MLStatEval.utils.utils import makeifnot, gg_save  # grid_save
-from MLStatEval.utils.stats import emp_roc_curve, auc_rank, find_auroc
+from trialML.theory import gaussian_mixture
+from trialML.utils.utils import makeifnot, gg_save  # grid_save
+from trialML.utils.stats import emp_roc_curve, auc_rank, find_auroc
 
 # Folders relative to script
 dir_here = pathlib.Path(__file__).parent
 dir_figures = os.path.join(dir_here, 'figures')
 makeifnot(dir_figures)
-# dir_figures = os.path.join(os.getcwd(), 'MLStatEval', 'simulations', 'figures')
+# dir_figures = os.path.join(os.getcwd(), 'trialML', 'simulations', 'figures')
 
 
 ############################

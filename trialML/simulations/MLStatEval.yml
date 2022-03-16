@@ -1,4 +1,4 @@
-name: MLStatEval
+name: trialML
 channels:
   - defaults
   - conda-forge

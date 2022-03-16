@@ -5,7 +5,7 @@ from scipy.stats import rankdata, skewnorm
 from scipy.optimize import root_scalar
 from statsmodels.stats.proportion import proportion_confint as prop_CI
 # Internal modules
-from MLStatEval.utils.utils import cvec, check01, array_to_float
+from trialML.utils.utils import cvec, check01, array_to_float
 
 def umbrella_thresh(n, target, alpha, upper=True):
     """

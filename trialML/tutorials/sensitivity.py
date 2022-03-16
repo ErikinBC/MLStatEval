@@ -7,7 +7,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.datasets import fetch_california_housing
 from sklearn.preprocessing import StandardScaler, Binarizer
-from MLStatEval.trial import classification
+from trialML.trial import classification
 
 # Load data
 X, y = fetch_california_housing(return_X_y=True)

@@ -45,6 +45,7 @@ y_trial, s_trial = normal_dgp.gen_mixture(n_test, k_exper, seed=seed+1)
 alpha = 0.05  # type-I error (for either power or threshold)
 gamma = 0.60  # target performance
 spread = 0.1  # Null hypothesis spread
+gamma0 = gamma - spread
 n_trial = 100  # Number of (class specific) trial samples
 n_bs = 250  # Number of bootstrap iterations
 
@@ -87,7 +88,7 @@ for m in lst_m:
     power_test = power_test.melt('idx',None,'method','power')
 
     # (iv) Generate performance measure and test statistic on trial
-    m_trial, pval_trial = calibration.statistic(y=y_trial, s=s_trial, threshold=calibration.threshold_hat, pval=True)
+    m_trial, pval_trial = calibration.statistic(y=y_trial, s=s_trial, threshold=calibration.threshold_hat, gamma0=gamma0)
     # Merge p-value with power estimate
     pval_trial = pval_trial.assign(idx=idx_exper)
     pval_trial = pval_trial.melt('idx',None,'method','pval')

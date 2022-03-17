@@ -99,7 +99,7 @@ width = 3 * len(res_sim_mu['n_trial'].unique())
 gg_power_margin = (pn.ggplot(res_sim_mu, pn.aes(x='margin',fill='n_test')) + 
     pn.theme_bw() + 
     pn.scale_fill_discrete(name='# of test samples') + 
-    pn.facet_grid('m~n_trial',labeller=pn.labeller(n_trial=pn.label_both, m=di_m)) + 
+    pn.facet_grid('m~n_trial',labeller=pn.labeller(n_trial=pn.label_both, m=di_m2)) + 
     pn.labs(x='Null hypothesis margin',y='Power CI') + 
     pn.geom_ribbon(pn.aes(ymin='power_lb',ymax='power_ub'),color='black',alpha=0.5))
 gg_power_margin.save(os.path.join(dir_figures,'gg_power_margin.png'),height=height,width=width)

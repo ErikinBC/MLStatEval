@@ -49,18 +49,18 @@ class classification():
             hasattr(self.m, method), 'performance measure (m) needs to have method %s' % method
 
 
-    def statistic(self, y, s, threshold, pval=False):
+    def statistic(self, y, s, threshold, gamma0=None):
         """
         y:                      Binary labels
         s:                      Scores
         threshold:              Operating threshold (if 2d array, threshold.shape[0] == s.shape[1]) and columns correspond to some different some of method
-        pval:                   Should a p-value be return for a normal approximation of a binomial?
+        gamma0:                 Null hypothesis (if provided returns a p-value)
         """
         m_hat, den_hat = self.m.statistic(y=y, s=s, threshold=threshold, return_den=True)
-        if pval:
+        if gamma0 is not None:
             cn, idx = get_cn_idx(m_hat)
-            sig0 = np.sqrt( (self.gamma * (1-self.gamma)) / den_hat )
-            z = (m_hat - self.gamma) / sig0
+            sig0 = np.sqrt( (gamma0 * (1-gamma0)) / den_hat )
+            z = (m_hat - gamma0) / sig0
             pval = norm.cdf(-z)
             if isinstance(cn, list):
                 pval = pd.DataFrame(pval, columns = cn, index=idx)

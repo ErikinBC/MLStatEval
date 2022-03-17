@@ -8,3 +8,6 @@ Rplots.pdf
 conda_env.txt
 .DS_store
 .vscode
+build/
+dist/
+*egg-info

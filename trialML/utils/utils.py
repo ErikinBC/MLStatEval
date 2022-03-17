@@ -62,6 +62,8 @@ def array_to_float(x):
     if isinstance(x, list):
         x = np.array(x)
     if hasattr(x, 'shape'):
+        if len(x.shape) == 0:
+            return x
         if max(x.shape) == 1:
             x = to_array(x).flatten()[0]
     return x

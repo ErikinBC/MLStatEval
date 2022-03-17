@@ -13,7 +13,7 @@ from scipy.stats import norm
 # Internal modules
 from trialML.utils.stats import get_CI
 from trialML.utils.theory import power_binom
-from trialML.utils.utils import check01, check_binary
+from trialML.utils.utils import check01, check_binary, to_array
 from trialML.utils.m_classification import sensitivity, specificity, precision
 
 di_m_classification = {'sensitivity':sensitivity, 'specificity':specificity, 'precision':precision}
@@ -52,8 +52,12 @@ class twosided_classification():
         stat1, den1 = self.m1.statistic(y=y, s=s, threshold=threshold, return_den=True)
         stat2, den2 = self.m2.statistic(y=y, s=s, threshold=threshold, return_den=True)
         # Get the lb/ub ranges for the binomial confidence interval
-        df1 = pd.DataFrame({'m':1, 'gamma_hat':stat1.values.flat, 'den':den1.values.flat})
-        df2 = pd.DataFrame({'m':2,'gamma_hat':stat2.values.flat, 'den':den2.values.flat})
+        if isinstance(stat1, float):
+            df1 = pd.DataFrame({'m':1, 'gamma_hat':stat1, 'den':den1},index=[0])
+            df2 = pd.DataFrame({'m':2, 'gamma_hat':stat2, 'den':den2},index=[1])
+        else:
+            df1 = pd.DataFrame({'m':1, 'gamma_hat':stat1.values.flat, 'den':den1.values.flat})
+            df2 = pd.DataFrame({'m':2,'gamma_hat':stat2.values.flat, 'den':den2.values.flat})
         df = pd.concat(objs=[df1, df2], axis=0)
         df = df.rename_axis('cidx').reset_index()
         df = df.assign(num=lambda x: x['gamma_hat']*x['den'])
@@ -111,7 +115,11 @@ class twosided_classification():
         self.df = self.statistic_CI(y, s, self.threshold)
         self.df.drop(columns=['den'], inplace=True)
         # Add on threshold
-        self.df = self.df.assign(threshold=np.tile(self.threshold.values, [2,1]).flat)
+        if isinstance(self.threshold, float):
+            tt = np.array([self.threshold])
+        else:
+            tt = self.threshold.values
+        self.df = self.df.assign(threshold=np.tile(tt, [2,1]).flat)
 
 
     def get_power(self, n_trial, margin, adjust=True):

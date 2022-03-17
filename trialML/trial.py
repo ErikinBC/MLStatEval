@@ -26,7 +26,6 @@ two-sided:              Use distribution of of thresholds to estimate power
 """
 power_method = ['one-sided', 'two-sided']
 
-# self = classification(gamma=0.8, m='sensitivity', alpha=0.05)
 class classification():
     """
     Main class for supporting statistical calibration of ML models for classification task
@@ -94,8 +93,6 @@ class classification():
         if inherit:
             self.y, self.s = y, s        
 
-    # method='one-sided'; # assert method in power_method, 'power method must be one of %s' % power_method
-    # spread=0.1;n_trial=100;n_bs=1000
     def calculate_power(self, spread, n_trial, threshold=None):
         """
         Calculate expected power for a future trial. If y/s/threshold are supplied, then n_trial will be weighted by yhat to adjust for the sample size

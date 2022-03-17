@@ -7,13 +7,13 @@
 The main modules from `trialML` can be called in with one line of code: `from trialML import trial, power`. Their key methods are outlined below, and are described with more detail by the docstrings (e.g. `help('trialML.trial.classification')`). 
 
 1. `trial.classification(gamma, m, alpha)`: determine optimal threshold and calculate power of future trial
-    I. `statistic(y, s, threshold, pval=..)`: return the performance measure for a given threshold (and possibly p-value from null hypothesis)
-    II. `learn_threshold(y, s, method='..')`: calibrate the opearting threshold to obtain at least `gamma` 1-`alpha`% of the time.
-    III. `calculate_power(spread, n_trial, threshold)`: estimate power for a given trial sample size and null hypothesis margin (spread). Threshold can be provided to estimate percent of samples that are class-specific.
+    1. `statistic(y, s, threshold, pval=..)`: return the performance measure for a given threshold (and possibly p-value from null hypothesis)
+    2. `learn_threshold(y, s, method='..')`: calibrate the opearting threshold to obtain at least `gamma` 1-`alpha`% of the time.
+    3. `calculate_power(spread, n_trial, threshold)`: estimate power for a given trial sample size and null hypothesis margin (spread). Threshold can be provided to estimate percent of samples that are class-specific.
 2. `power.twosided_classification(m1, m2, alpha)`: estimate performance measure and power range (confidence interval) for two performance measures: `m1` and `m2`.
-    I. `set_threshold(y, s, gamma1)`: Set the threshold to get a performance level of `gamma1` for the first performance measure `m1`.
-    II. `statistic_CI(y, s, threshold)`: Get the (1-`alpha`) confidence interval for the empirical values of `m1` and `m2`.
-    III. `statistic_pval(y, s, gamma0)`: Get the p-value on trial data for a given null hypothesis.
+    1. `set_threshold(y, s, gamma1)`: Set the threshold to get a performance level of `gamma1` for the first performance measure `m1`.
+    2. `statistic_CI(y, s, threshold)`: Get the (1-`alpha`) confidence interval for the empirical values of `m1` and `m2`.
+    3. `statistic_pval(y, s, gamma0)`: Get the p-value on trial data for a given null hypothesis.
 
 ## How to use
 
@@ -68,6 +68,4 @@ print('Trial sensitivity: %0.1f%%, trial null-hypothesis: %0.1f%%, trial p-value
 
 ## How to install
 
-`trialML` is available on [PyPI]() can be installed in one line: `pip install trialML`.
-
-
+`trialML` is available on [PyPI](https://pypi.org/project/trialML/) can be installed in one line: `pip install trialML`.

@@ -15,7 +15,7 @@ setup(
     author_email='erikinwest@gmail.com',
     license='MIT',
     packages=['trialML'],
-    package_data={'trialML': ['_datagen/*']},
+    package_data={'trialML': ['utils','utils/*','tutorials','tutorials/*']},
     include_package_data=True,
     install_requires=['numpy', 'pandas'],
     classifiers=[

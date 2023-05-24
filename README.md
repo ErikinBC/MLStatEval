@@ -1,6 +1,13 @@
 # trialML: Preparing a machine learning model for a statistical trial
 
-`trialML` is a `python` package designed to help researchers and practioners prepare their machine learning models for a statistical trial to establish a lower-bound on model performance. Specifically, this package helps to calibrating the operating threshold of a binary classifier and carry out a power analysis. A more formal description of these techniques can be found in the corresponding [arXiv paper]().
+`trialML` is a `python` package designed to help researchers and practioners prepare their machine learning models for a statistical trial to establish a lower-bound on model performance. Specifically, this package helps to:
+
+1. Calibrate the operating threshold of a binary classifier and carry out a power analysis for a specific performance measure (e.g. sensitivity or specificity)
+2. Determine the critical value for rejecting the null hypothesis for a regression model's performance (e.g. MSE or MAE) using test set data.
+
+A more formal description of these techniques can be found in the corresponding arXiv paper (UNDER CONSTRUCTION).
+
+<br>
 
 ## Features
 
@@ -15,9 +22,11 @@ The main modules from `trialML` can be called in with one line of code: `from tr
     2. `statistic_CI(y, s, threshold)`: Get the (1-`alpha`) confidence interval for the empirical values of `m1` and `m2`.
     3. `statistic_pval(y, s, gamma0)`: Get the p-value on trial data for a given null hypothesis.
 
+<br>
+
 ## How to use
 
-The code block below shows how to calibrate a classifier for toy example of a classifier trained on random data. For more detailed examples wiht real data, please see the [tutorials](https://github.com/ErikinBC/trialML/tree/main/trialML/tutorials) folder.
+The code block below shows how to calibrate a classifier for toy example of a classifier trained on random data. For more detailed examples wiht real data, please see the [tutorials](trialML/tutorials) folder.
 
 ```python
 # Load modules
@@ -65,6 +74,7 @@ s_trial = np.log(s_trial / (1-s_trial))  # logit transform
 gamma_trial, pval_trial = calibration.statistic(y=y_trial, s=s_trial, gamma0=gamma0, threshold=calibration.threshold_hat)
 print('Trial sensitivity: %0.1f%%, trial null-hypothesis: %0.1f%%, trial p-value: %0.5f' % (100*gamma_trial, 100*gamma0, pval_trial))
 ```
+<br>
 
 ## How to install
 

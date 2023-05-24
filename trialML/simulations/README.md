@@ -1,6 +1,6 @@
 # simulations folder
 
-The scripts in this folder carry out the various simulations needed to generate the figures found in the [trialML]() paper.
+The scripts in this folder carry out the various simulations needed to generate the figures found in the trialML (UNDER CONSTRUCTION) paper.
 
 1. `pipeline_R.sh`: Scrapes web data to show publications/approvals
 	I. `r1_get_arxiv.R`: gets arXiv publications with cateogires stat.ML, cs.AI, & cs.LG and produces `figures/gg_arxiv.png` and `data/df_arxiv.csv`.

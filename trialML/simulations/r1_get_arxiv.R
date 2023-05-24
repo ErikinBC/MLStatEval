@@ -27,7 +27,7 @@ if (!dir.exists(dir_data)) {
 
 sleep = 1
 fn_path = file.path(dir_data, 'df_arxiv.csv')
-year_seq = seq(12, 21, 1)
+year_seq = seq(15, 23, 1)
 month_seq = seq(1, 12, 1)
 category_seq = c('stat.ML', 'cs.AI', 'cs.LG')
 n_perm = length(year_seq) * length(month_seq) * length(category_seq)

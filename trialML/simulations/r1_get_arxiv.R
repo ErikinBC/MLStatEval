@@ -90,11 +90,15 @@ df_agg = df_date %>% group_by(date) %>%
 ######################
 # ---- (3) PLOT ---- #
 
+# Round up to nearest 20K unit
+ymx = max(df_agg$value)
+ymx = ceiling(ymx/20000)*20000
 gg_arxiv = ggplot(df_agg, aes(x=date, y=value, color=name)) + 
   geom_line() + theme_bw() + 
   labs(y='# publications (annualized)') +  
   scale_color_discrete(name='Adjustment') + 
   scale_x_date(date_breaks = '1 year', date_labels = '%Y-%m') + 
+  scale_y_continuous(limits=c(0,ymx)) +
   theme(axis.title.x = element_blank(), axis.text.x=element_text(angle=90),
         legend.position = c(0.25,0.75))
 save_plot(file.path(dir_figures, 'gg_arxiv.png'), gg_arxiv, base_width=5, base_height=3.5)

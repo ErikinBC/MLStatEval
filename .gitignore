@@ -10,3 +10,4 @@ Rplots.pdf
 build/
 dist/
 *egg-info
+papers/*.pdf

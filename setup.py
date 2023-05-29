@@ -17,7 +17,7 @@ setup(
     packages=['trialML'],
     package_data={'trialML': ['utils','utils/*','tutorials','tutorials/*']},
     include_package_data=True,
-    install_requires=['numpy', 'pandas'],
+    install_requires=['numpy', 'pandas', 'sntn'],
     classifiers=[
         'Development Status :: 3 - Alpha',
         'Intended Audience :: Science/Research',

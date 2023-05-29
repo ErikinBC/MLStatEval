@@ -78,4 +78,4 @@ print('Trial sensitivity: %0.1f%%, trial null-hypothesis: %0.1f%%, trial p-value
 
 ## How to install
 
-`trialML` is available on [PyPI](https://pypi.org/project/trialML/) can be installed in one line: `pip install trialML`.
+`trialML` is available on [PyPI](https://pypi.org/project/trialML/) can be installed in one line: `pip install trialML`. Please note that python>=3.11 is needed.
